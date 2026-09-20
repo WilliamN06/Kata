@@ -1,0 +1,12 @@
+export { V1IntervalDrill } from './v1-interval';
+export { V2ChordDrill } from './v2-chord';
+export { V3TonalCentreDrill } from './v3-tonal-centre';
+export { V4PitchClassDrill } from './v4-pitch-class';
+export { V5ContourDrill } from './v5-contour';
+export { V6FusionDrill } from './v6-fusion';
+export { V7MaskingDrill } from './v7-masking';
+export { V8PhraseBoundaryDrill } from './v8-phrase-boundary';
+export { V9MicrotonalDrill } from './v9-microtonal';
+export { V10InversionDrill } from './v10-inversion';
+export { V11EnharmonicDrill } from './v11-enharmonic';
+export { V12AbsolutePitchDrill } from './v12-absolute-pitch';
