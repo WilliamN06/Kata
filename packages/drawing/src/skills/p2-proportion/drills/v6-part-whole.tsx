@@ -1,81 +1,116 @@
 import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
+import { Dot } from '@kata/rendering';
 import { ContinueButton } from '@kata/ui';
+import { FRACTIONS, FRACTION_KEYS, readStimulusColor } from '../p2-utils';
 
 type Phase = 'judging' | 'feedback';
 
-const FRACTIONS: Record<string, number> = {
-  '1/4': 0.25,
-  '1/3': 1 / 3,
-  '1/2': 0.5,
-  '2/3': 2 / 3,
-  '3/4': 0.75,
-};
+const LINE_W = 500;
 
-const FRACTION_KEYS = Object.keys(FRACTIONS);
-
-/** Part-whole: judge what fraction of the whole is shaded. */
-export function V6PartWholeDrill({ onAnswer, settings }: DrillProps) {
+export function V6PartWholeDrill({ onAnswer, variableParams }: DrillProps) {
   const startTime = useRef(Date.now());
-  const [picked, setPicked] = useState<string | null>(null);
+  const answerRef = useRef<HTMLDivElement>(null);
+  const [guess, setGuess] = useState(0.5);
   const [phase, setPhase] = useState<Phase>('judging');
 
-  const truthKey = useMemo(
-    () => FRACTION_KEYS[Math.floor(Math.random() * FRACTION_KEYS.length)]!,
-    []
-  );
-  const truth = FRACTIONS[truthKey]!;
-  const correct = picked === truthKey;
+  const fractionSet = (variableParams?.fractionSet as string) ?? 'mixed';
+  const showLine = String(variableParams?.stim_showLine ?? 'true') === 'true';
+  const tolerance = ((variableParams?.fractionTolerancePct as number) ?? 5) / 100;
 
-  const handlePick = (k: string) => {
-    if (phase === 'feedback') return;
-    setPicked(k);
-    setPhase('feedback');
+  const pool = useMemo(() => {
+    if (fractionSet === 'halves') return ['1/2'];
+    if (fractionSet === 'thirds') return ['1/3', '2/3'];
+    if (fractionSet === 'quarters') return ['1/4', '3/4'];
+    return [...FRACTION_KEYS];
+  }, [fractionSet]);
+
+  const truthKey = useMemo(
+    () => pool[Math.floor(Math.random() * pool.length)] ?? '1/2',
+    [pool],
+  );
+  const truth = FRACTIONS[truthKey] ?? 0.5;
+
+  const stim = readStimulusColor(variableParams);
+  const correct = Math.abs(guess - truth) <= tolerance;
+
+  const handleDrag = (e: React.PointerEvent) => {
+    if (phase === 'feedback' || e.buttons !== 1 || !answerRef.current) return;
+    const rect = answerRef.current.getBoundingClientRect();
+    const frac = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
+    setGuess(frac);
   };
 
   const handleContinue = () => {
     onAnswer(correct, Date.now() - startTime.current);
     setPhase('judging');
-    setPicked(null);
+    setGuess(0.5);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8">
-      <p className="text-lg text-neutral-200 mb-2">What fraction of the whole is shaded?</p>
+    <div className="flex flex-col items-center min-h-screen p-6 w-full">
+      <p className="text-lg text-neutral-200 mb-2">Where is the middle dot?</p>
+      <p className="text-sm text-neutral-500 mb-10">
+        The three dots define two segments. The middle dot sits at some fraction
+        of the whole. Drag your own middle dot to match.
+      </p>
 
+      {/* Stimulus: three dots */}
+      <div className="relative mb-12" style={{ width: LINE_W, height: 40 }}>
+        {showLine && (
+          <div
+            className="absolute left-0 right-0 top-1/2 -translate-y-1/2"
+            style={{ height: 1, backgroundColor: '#4A9EFF', opacity: 0.4 }}
+          />
+        )}
+        <Dot at={{ x: 0, y: 20 }} size={14} color={stim.bar} />
+        <Dot at={{ x: LINE_W * truth, y: 20 }} size={14} color={stim.bar} />
+        <Dot at={{ x: LINE_W, y: 20 }} size={14} color={stim.bar} />
+      </div>
+
+      {/* Answer: draggable middle dot */}
       <div
-        className="relative rounded-lg overflow-hidden border border-neutral-700 mb-8"
-        style={{ width: 260, height: 200 }}
+        ref={answerRef}
+        onPointerMove={handleDrag}
+        className="relative mb-6 cursor-ew-resize select-none"
+        style={{ width: LINE_W, height: 40, backgroundColor: stim.bg }}
       >
-        {/* Whole */}
-        <div className="absolute inset-0 bg-neutral-200" />
-        {/* Shaded part: a horizontal band of height truth*200 from the top */}
-        <div className="absolute left-0 right-0 bg-neutral-600" style={{ height: truth * 200 }} />
+        {showLine && (
+          <div
+            className="absolute left-0 right-0 top-1/2 -translate-y-1/2"
+            style={{ height: 1, backgroundColor: '#4A9EFF', opacity: 0.4 }}
+          />
+        )}
+        <Dot at={{ x: 0, y: 20 }} size={14} color={stim.bar} />
+        <Dot at={{ x: LINE_W * guess, y: 20 }} size={14} color="#4A9EFF" />
+        <Dot at={{ x: LINE_W, y: 20 }} size={14} color={stim.bar} />
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2 max-w-md">
-        {FRACTION_KEYS.map((k) => (
-          <button
-            key={k}
-            onClick={() => handlePick(k)}
-            className={`px-4 py-2 rounded-lg border text-sm font-mono transition-colors ${
-              phase === 'feedback' && picked === k
-                ? 'bg-blue-600 border-blue-500 text-white'
-                : 'bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700'
-            }`}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
+      <p className="text-sm font-mono text-neutral-400 mb-6">
+        current guess — {(guess * 100).toFixed(1)}%
+      </p>
 
-      {phase === 'feedback' && picked !== null && (
-        <div className={`mt-8 p-6 rounded-lg border ${correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'}`}>
+      {phase === 'judging' && (
+        <button
+          onClick={() => setPhase('feedback')}
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold"
+        >
+          SUBMIT
+        </button>
+      )}
+
+      {phase === 'feedback' && (
+        <div
+          className={`mt-6 p-6 rounded-lg border max-w-xl text-center ${
+            correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'
+          }`}
+        >
           <p className={`text-lg font-semibold mb-2 ${correct ? 'text-green-400' : 'text-red-400'}`}>
             {correct ? '✓ CORRECT' : '✗ INCORRECT'}
           </p>
           <p className="text-sm text-neutral-300">
-            The shaded part was <strong>{truthKey}</strong> of the whole.
+            The middle dot was at <strong>{truthKey}</strong> ({(truth * 100).toFixed(1)}%).
+            You placed at <strong>{(guess * 100).toFixed(1)}%</strong>.
           </p>
           <ContinueButton onClick={handleContinue} />
         </div>

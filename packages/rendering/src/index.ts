@@ -11,3 +11,4 @@ export { SymmetryChip } from './SymmetryChip';
 export { AngleDots } from './AngleDots';
 export { RatioChip, formatRatio } from './RatioChip';
 export { GridChip } from './GridChip';
+export { DotPair, Dot, Line, type DotPairProps } from './DotPair';

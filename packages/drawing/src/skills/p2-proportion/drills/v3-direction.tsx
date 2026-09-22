@@ -1,23 +1,30 @@
 import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
+import { DotPair } from '@kata/rendering';
 import { ContinueButton } from '@kata/ui';
-import { resolveRatio } from '../p2-utils';
+import { resolveRatioRange, readStimulusColor } from '../p2-utils';
 
 type Phase = 'judging' | 'feedback';
 
-/**
- * Comparison direction bias: judge whether a pair shown as A:B then B:A are the
- * same ratio (reciprocal orientation). Tests reciprocity consistency.
- */
-export function V3DirectionDrill({ onAnswer, settings }: DrillProps) {
+const BASE = 40;
+
+export function V3DirectionDrill({ onAnswer, variableParams }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answer, setAnswer] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<Phase>('judging');
 
-  const ratioRange = (settings?.ratioRange as string) ?? 'moderate';
-  const b = useMemo(() => resolveRatio(ratioRange), [ratioRange]);
+  const rangeKey = (variableParams?.ratioRange as string) ?? 'moderate';
+  const ratioMin = variableParams?.ratioMin as number | undefined;
+  const ratioMax = variableParams?.ratioMax as number | undefined;
+  const showLine = String(variableParams?.stim_showLine ?? 'true') === 'true';
 
-  // Always true in this drill: A:B and B:A are the same ratio, different orientation.
+  const [lo, hi] = useMemo(
+    () => resolveRatioRange(rangeKey, ratioMin, ratioMax),
+    [rangeKey, ratioMin, ratioMax],
+  );
+  const b = useMemo(() => lo + Math.floor(Math.random() * (hi - lo + 1)), [lo, hi]);
+  const stim = readStimulusColor(variableParams);
+
   const truth = true;
   const correct = answer === truth;
 
@@ -34,37 +41,77 @@ export function V3DirectionDrill({ onAnswer, settings }: DrillProps) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8">
+    <div className="flex flex-col items-center min-h-screen p-6 w-full">
       <p className="text-lg text-neutral-200 mb-2">
-        Are the two pairs the <strong>same ratio</strong>, just reversed?
+        Are the two dot pairs the <strong>same ratio</strong>, just reversed?
       </p>
-      <p className="text-sm text-neutral-500 mb-6">
-        Pair 1 is <strong>1:{b}</strong> (A longer). Pair 2 is <strong>{b}:1</strong> (B longer).
+      <p className="text-sm text-neutral-500 mb-8">
+        Pair 1 has the longer side on the right. Pair 2 has the longer side on the left.
       </p>
 
-      <div className="flex gap-3 mb-8">
+      <div className="flex flex-col items-center gap-8 mb-10">
+        <div>
+          <DotPair
+            width={BASE * b + 80}
+            height={50}
+            distance={BASE * b}
+            anchorX={20}
+            anchorY={25}
+            showLine={showLine}
+            dotColor={stim.bar}
+            backgroundColor={stim.bg}
+          />
+          <p className="text-xs text-neutral-500 text-center mt-1">pair 1</p>
+        </div>
+        <div>
+          <DotPair
+            width={BASE * b + 80}
+            height={50}
+            distance={BASE * b}
+            anchorX={BASE * b}
+            anchorY={25}
+            showLine={showLine}
+            dotColor={stim.bar}
+            backgroundColor={stim.bg}
+          />
+          <p className="text-xs text-neutral-500 text-center mt-1">pair 2</p>
+        </div>
+      </div>
+
+      <div className="flex gap-3 mb-6">
         <button
           onClick={() => handle(true)}
-          className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg"
+          className={`px-6 py-3 rounded-lg border ${
+            answer === true
+              ? 'bg-blue-600 border-blue-500 text-white'
+              : 'bg-neutral-800 border-neutral-700 hover:bg-neutral-700'
+          }`}
         >
           SAME RATIO
         </button>
         <button
           onClick={() => handle(false)}
-          className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg"
+          className={`px-6 py-3 rounded-lg border ${
+            answer === false
+              ? 'bg-blue-600 border-blue-500 text-white'
+              : 'bg-neutral-800 border-neutral-700 hover:bg-neutral-700'
+          }`}
         >
           DIFFERENT
         </button>
       </div>
 
       {phase === 'feedback' && answer !== null && (
-        <div className={`p-6 rounded-lg border ${correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'}`}>
+        <div
+          className={`p-6 rounded-lg border max-w-xl text-center ${
+            correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'
+          }`}
+        >
           <p className={`text-lg font-semibold mb-2 ${correct ? 'text-green-400' : 'text-red-400'}`}>
             {correct ? '✓ CORRECT' : '✗ INCORRECT'}
           </p>
           <p className="text-sm text-neutral-300">
-            Both pairs are the same ratio. Pair 1 was <strong>1:{b}</strong>, Pair 2 was{' '}
-            <strong>{b}:1</strong> — same ratio, different orientation.
+            Both pairs are the same ratio (1 : {b}), just reversed in orientation.
           </p>
           <ContinueButton onClick={handleContinue} />
         </div>
