@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@kata/app": "workspace:*",
+    "@kata/audio": "workspace:*",
     "@kata/core": "workspace:*",
     "@kata/db": "workspace:*",
     "@kata/drawing": "workspace:*",

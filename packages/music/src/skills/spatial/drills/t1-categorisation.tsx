@@ -2,7 +2,7 @@
 import type { DrillProps } from '@kata/core';
 import { MusicDrillWrapper } from '../../../shared/MusicDrillWrapper';
 import { MusicStimulusView } from '../../../shared/MusicStimulusView';
-import { createSpatialPositionStimulus } from '../stimuli/spatial-helper';
+import { createSpatialPositionStimulus, createSpatialDepthStimulus } from '../stimuli/spatial-helper';
 
 export function T1Categorisation({ variable, variableParams, stimulusParams, taskConditions, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());

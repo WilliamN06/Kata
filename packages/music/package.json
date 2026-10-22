@@ -12,7 +12,9 @@
     "@kata/core": "workspace:*",
     "@kata/rendering": "workspace:*",
     "@kata/ui": "workspace:*",
-    "@kata/audio": "workspace:*"
+    "@kata/audio": "workspace:*",
+    "@kata/music-shared": "workspace:*",
+    "@kata/visualisation": "workspace:*"
   },
   "peerDependencies": {
     "react": "^18.2.0"

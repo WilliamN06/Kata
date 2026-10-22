@@ -47,6 +47,9 @@ importers:
       '@kata/app':
         specifier: workspace:*
         version: link:../../packages/app
+      '@kata/audio':
+        specifier: workspace:*
+        version: link:../../packages/audio
       '@kata/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -117,6 +120,9 @@ importers:
       '@kata/app':
         specifier: workspace:*
         version: link:../../packages/app
+      '@kata/audio':
+        specifier: workspace:*
+        version: link:../../packages/audio
       '@kata/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -190,6 +196,9 @@ importers:
       '@kata/drawing':
         specifier: workspace:*
         version: link:../drawing
+      '@kata/music':
+        specifier: workspace:*
+        version: link:../music
       '@kata/rendering':
         specifier: workspace:*
         version: link:../rendering
@@ -302,12 +311,18 @@ importers:
       '@kata/core':
         specifier: workspace:*
         version: link:../core
+      '@kata/music-shared':
+        specifier: workspace:*
+        version: link:../music-shared
       '@kata/rendering':
         specifier: workspace:*
         version: link:../rendering
       '@kata/ui':
         specifier: workspace:*
         version: link:../ui
+      '@kata/visualisation':
+        specifier: workspace:*
+        version: link:../visualisation
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -315,6 +330,12 @@ importers:
       '@types/react':
         specifier: ^18.2.0
         version: 18.3.31
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+
+  packages/music-shared:
+    devDependencies:
       typescript:
         specifier: ^5.3.0
         version: 5.9.3
@@ -353,6 +374,19 @@ importers:
       '@types/react-dom':
         specifier: ^18.2.0
         version: 18.3.7(@types/react@18.3.31)
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+
+  packages/visualisation:
+    dependencies:
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.31
       typescript:
         specifier: ^5.3.0
         version: 5.9.3

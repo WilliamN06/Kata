@@ -22,6 +22,8 @@ interface MusicStimulusViewProps {
   readouts?: Array<{ label: string; value: string }>;
   /** If provided, renders these buttons instead of a single PLAY button. */
   buttons?: PlayButtonSpec[];
+  playButtons?: Array<{ label: string; variant: ButtonVariant }>;
+  onPlayAt?: (button: { label: string; variant: ButtonVariant }) => void | Promise<void>;
 }
 
 /**
@@ -42,6 +44,8 @@ export function MusicStimulusView({
   label = '♪ PLAY',
   readouts = [],
   buttons,
+  playButtons,
+  onPlayAt,
 }: MusicStimulusViewProps) {
   const [playing, setPlaying] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -69,10 +73,18 @@ export function MusicStimulusView({
   };
 
   const renderButtons = () => {
-    if (buttons && buttons.length > 0) {
+    const specs: PlayButtonSpec[] =
+      buttons && buttons.length > 0
+        ? buttons
+        : (playButtons ?? []).map((b) => ({
+            ...b,
+            handler: () => onPlayAt?.(b),
+          }));
+
+    if (specs.length > 0) {
       return (
         <div className="flex flex-wrap gap-3 justify-center">
-          {buttons.map((b, i) => {
+          {specs.map((b, i) => {
             const key = `${b.variant}-${i}`;
             const isPlaying = playing === key;
             return (
