@@ -1,0 +1,31 @@
+﻿{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "@kata/core": ["./packages/core/src"],
+      "@kata/rendering": ["./packages/rendering/src"],
+      "@kata/db": ["./packages/db/src"],
+      "@kata/ui": ["./packages/ui/src"],
+      "@kata/drawing": ["./packages/drawing/src"],
+      "@kata/audio": ["./packages/audio/src"],
+      "@kata/music": ["./packages/music/src"],
+      "@kata/app": ["./packages/app/src"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "target"]
+}

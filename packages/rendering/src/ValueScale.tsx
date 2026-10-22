@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 import { lStarToSrgb } from './lstar';
 
 interface ValueScaleProps {
+  base?: number;
+  range?: number;
   steps?: number;
   width: number;
   height: number;
@@ -12,6 +14,8 @@ interface ValueScaleProps {
 }
 
 export function ValueScale({
+  base = 0,
+  range = 100,
   steps = 10,
   width,
   height,
@@ -25,29 +29,27 @@ export function ValueScale({
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
 
     const stepWidth = width / steps;
 
-    // Draw the steps
     for (let i = 0; i < steps; i++) {
-      const lStar = (i / (steps - 1)) * 100;
+      const t = steps === 1 ? 0 : i / (steps - 1);
+      const lStar = base + t * range;
       const byte = lStarToSrgb(lStar);
       ctx.fillStyle = `rgb(${byte}, ${byte}, ${byte})`;
       ctx.fillRect(i * stepWidth, 0, stepWidth + 1, height);
     }
 
-    // Draw divider lines
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.lineWidth = 1;
     for (let i = 1; i < steps; i++) {
@@ -57,18 +59,16 @@ export function ValueScale({
       ctx.stroke();
     }
 
-    // Highlight selected step
     if (selectedStep !== null && selectedStep !== undefined) {
       const x = selectedStep * stepWidth;
       ctx.strokeStyle = '#4A9EFF';
       ctx.lineWidth = 3;
       ctx.strokeRect(x + 2, 2, stepWidth - 4, height - 4);
     }
-  }, [steps, width, height, selectedStep]);
+  }, [base, range, steps, width, height, selectedStep]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onSelect) return;
-
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const step = Math.floor((x / width) * steps);
@@ -79,22 +79,13 @@ export function ValueScale({
     <div className={className}>
       <canvas
         ref={ref}
-        role="img"
-        aria-label={`Value scale with ${steps} steps${selectedStep != null ? `, step ${selectedStep + 1} selected` : ''}`}
         onClick={handleClick}
-        style={{
-          display: 'block',
-          cursor: onSelect ? 'pointer' : 'default',
-        }}
+        style={{ display: 'block', cursor: onSelect ? 'pointer' : 'default' }}
       />
       {showLabels && (
-        <div
-          className="flex justify-between text-xs text-neutral-500 mt-1"
-          style={{ width }}
-        >
-          <span>1 (dark)</span>
-          <span>{steps}</span>
-          <span>{steps} (light)</span>
+        <div className="flex justify-between text-xs text-neutral-500 mt-1" style={{ width }}>
+          <span>{base.toFixed(0)}</span>
+          <span>{(base + range).toFixed(0)}</span>
         </div>
       )}
     </div>

@@ -1,45 +1,53 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ContinueButton } from '@kata/ui';
-import { resolveDistance } from '../p2-utils';
+import { resolveDistanceRangePct, pickDistancePct, readStimulusColor } from '../p2-utils';
 
 type Phase = 'judging' | 'feedback';
 
-/**
- * Distance extraction: two dots are shown separated by a true distance D. A
- * reference dot sits elsewhere. The user clicks a point that is the same
- * distance D from the reference dot.
- * Enhanced with additional point markers between the dots.
- */
-export function V5DistanceDrill({ onAnswer, settings }: DrillProps) {
+export function V5DistanceDrill({ onAnswer, variableParams }: DrillProps) {
   const startTime = useRef(Date.now());
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ w: 800, h: 500 });
   const [click, setClick] = useState<{ x: number; y: number } | null>(null);
   const [phase, setPhase] = useState<Phase>('judging');
+  const [truePct, setTruePct] = useState(30);
 
-  const distanceRange = (settings?.distanceRange as string) ?? 'medium';
-  const trueDistance = useMemo(() => resolveDistance(distanceRange), [distanceRange]);
+  const rangeKey = (variableParams?.distanceRange as string) ?? 'medium';
+  const minPct = variableParams?.distanceMinPct as number | undefined;
+  const maxPct = variableParams?.distanceMaxPct as number | undefined;
+  const [loPct, hiPct] = resolveDistanceRangePct(rangeKey, minPct, maxPct);
+  const stim = readStimulusColor(variableParams);
 
-  const REF = { x: 80, y: 180 }; // reference dot (left)
-  const A = { x: 80, y: 180 - trueDistance }; // first endpoint directly above ref
-  const B = { x: 80, y: 180 }; // second endpoint == reference dot (same point pair)
+  useEffect(() => {
+    setTruePct(pickDistancePct(loPct, hiPct));
+  }, [loPct, hiPct]);
 
-  const tolerancePx = trueDistance * 0.08; // 8% tolerance
-  const actualDist = click ? Math.abs(click.y - REF.y) : null;
-  const correct = actualDist !== null && Math.abs(actualDist - trueDistance) <= tolerancePx;
-  const errRatio = actualDist !== null ? Math.abs(actualDist - trueDistance) / trueDistance : null;
+  useEffect(() => {
+    const update = () => {
+      if (!canvasRef.current) return;
+      const r = canvasRef.current.getBoundingClientRect();
+      setDims({ w: r.width, h: r.height });
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
-  // Add intermediate markers at quarter, half, three-quarters of the distance
-  const intermediatePoints = useMemo(() => {
-    const points = [];
-    for (let t = 0.25; t <= 0.75; t += 0.25) {
-      points.push({ x: REF.x, y: REF.y - trueDistance * t });
-    }
-    return points;
-  }, [trueDistance]);
+  const shorter = Math.min(dims.w, dims.h);
+  const anchor = { x: dims.w * 0.15, y: dims.h * 0.25 };
+  const pairDistPx = (truePct / 100) * shorter;
+  const referenceEnd = { x: anchor.x, y: anchor.y - pairDistPx };
+
+  const tolerancePct = (variableParams?.task_tolerance as number) ?? 8;
+  const tolerancePx = (tolerancePct / 100) * shorter;
+
+  const userDistPx = click ? Math.hypot(click.x - anchor.x, click.y - anchor.y) : null;
+  const correct = userDistPx !== null && Math.abs(userDistPx - pairDistPx) <= tolerancePx;
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (phase === 'feedback') return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    if (phase === 'feedback' || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
     setClick({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     setPhase('feedback');
   };
@@ -48,50 +56,65 @@ export function V5DistanceDrill({ onAnswer, settings }: DrillProps) {
     onAnswer(correct, Date.now() - startTime.current);
     setPhase('judging');
     setClick(null);
+    setTruePct(pickDistancePct(loPct, hiPct));
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8">
-      <p className="text-lg text-neutral-200 mb-1">Reproduce the distance</p>
-      <p className="text-sm text-neutral-500 mb-6">
-        The two dots on the left are separated by a distance. Click a point in
-        the grid that is <strong>the same distance</strong> below the reference dot.
-      </p>
+    <div className="flex flex-col w-full" style={{ minHeight: '100vh' }}>
+      <div className="p-4 text-center">
+        <p className="text-lg text-neutral-200 mb-1">Reproduce the distance</p>
+        <p className="text-sm text-neutral-500">
+          The two dots at the top-left are separated by a distance. Click any point that is <strong>the same distance</strong> from the blue dot.
+        </p>
+      </div>
 
       <div
+        ref={canvasRef}
         onClick={handleClick}
-        className="relative rounded-lg overflow-hidden border border-neutral-700 cursor-crosshair"
-        style={{ width: 420, height: 340, backgroundColor: '#111' }}
-        data-testid="distance-canvas"
+        className="relative flex-1 cursor-crosshair border border-neutral-700 m-4 rounded-lg overflow-hidden"
+        style={{ backgroundColor: stim.bg, minHeight: 400 }}
       >
-        {/* Reference pair (top-left) */}
-        <div className="absolute w-3 h-3 rounded-full bg-neutral-200" style={{ left: A.x - 6, top: A.y - 6 }} />
-        <div className="absolute w-3 h-3 rounded-full bg-neutral-200" style={{ left: B.x - 6, top: B.y - 6 }} />
-        {/* Reference dot (the click target's origin) */}
-        <div className="absolute w-3 h-3 rounded-full bg-blue-400" style={{ left: REF.x - 6, top: REF.y - 6 }} />
-        {intermediatePoints.map((pt, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 rounded-full bg-neutral-300"
-            style={{ left: pt.x - 6, top: pt.y - 6 }}
-          />
-        ))}
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: referenceEnd.x - 6,
+            top: referenceEnd.y - 6,
+            width: 12,
+            height: 12,
+            backgroundColor: stim.bar,
+          }}
+        />
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: anchor.x - 6,
+            top: anchor.y - 6,
+            width: 12,
+            height: 12,
+            backgroundColor: '#4A9EFF',
+          }}
+        />
         {click && (
           <div
-            className="absolute w-4 h-4 rounded-full border-2 border-red-400"
-            style={{ left: click.x - 8, top: click.y - 8 }}
+            className="absolute rounded-full border-2 border-red-400"
+            style={{ left: click.x - 8, top: click.y - 8, width: 16, height: 16 }}
           />
         )}
       </div>
 
       {phase === 'feedback' && click !== null && (
-        <div className={`mt-6 p-6 rounded-lg border ${correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'}`}>
+        <div
+          className={`mx-4 mb-4 p-6 rounded-lg border ${
+            correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'
+          }`}
+        >
           <p className={`text-lg font-semibold mb-2 ${correct ? 'text-green-400' : 'text-red-400'}`}>
             {correct ? '✓ CORRECT' : '✗ INCORRECT'}
           </p>
           <p className="text-sm text-neutral-300">
-            True distance: <strong>{trueDistance.toFixed(0)}px</strong>. Your
-            error: <strong>{errRatio !== null ? `${(errRatio * 100).toFixed(1)}%` : '—'}</strong>.
+            True distance: <strong>{truePct.toFixed(1)}%</strong> of canvas
+            ({pairDistPx.toFixed(0)} px). Your distance:{' '}
+            <strong>{userDistPx?.toFixed(0)} px</strong>.
           </p>
           <ContinueButton onClick={handleContinue} />
         </div>

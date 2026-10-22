@@ -1,0 +1,37 @@
+{
+  "name": "@kata/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@kata/app": "workspace:*",
+    "@kata/core": "workspace:*",
+    "@kata/db": "workspace:*",
+    "@kata/drawing": "workspace:*",
+    "@kata/music": "workspace:*",
+    "@kata/rendering": "workspace:*",
+    "@kata/ui": "workspace:*",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "sql.js": "^1.10.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/sql.js": "^1.4.9",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.0",
+    "vite": "^5.1.0"
+  }
+}

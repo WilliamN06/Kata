@@ -1,107 +1,152 @@
 import { useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
+import { Dot, Line } from '@kata/rendering';
 import { ContinueButton } from '@kata/ui';
+import { readStimulusColor } from '../p2-utils';
 
-/**
- * Integration Group B (V6 + V11 + V12): analyze a "face" — the fraction the eye
- * region occupies, the vertical position of the eye, and whether it is symmetric.
- */
-type Q = 1 | 2 | 3;
+type Phase = 'watching' | 'reproducing' | 'feedback';
 
-const FACE_H = 220;
-
-export function GroupBDrill({ onAnswer }: DrillProps) {
+export function GroupBDrill({ onAnswer, variableParams }: DrillProps) {
   const startTime = useRef(Date.now());
-  const [q, setQ] = useState<Q>(1);
-  const [answers, setAnswers] = useState<{ fraction?: string; position?: string; symmetric?: boolean }>({});
-  const [phase, setPhase] = useState<'asking' | 'feedback'>('asking');
+  const [phase, setPhase] = useState<Phase>('watching');
 
-  const truthFraction = '1/3';
-  const truthPosition = '1/3';
+  const truthFraction = 1 / 3;
+  const truthPosition = 33;
   const truthSymmetric = true;
 
-  const allCorrect =
-    answers.fraction === truthFraction &&
-    answers.position === truthPosition &&
-    answers.symmetric === truthSymmetric;
+  const stim = readStimulusColor(variableParams);
+  const showLine = String(variableParams?.stim_showLine ?? 'true') === 'true';
 
-  const record = (key: keyof typeof answers, value: string | boolean, next: Q | null) => {
-    setAnswers((a) => {
-      const nextA = { ...a, [key]: value };
-      if (next === null) setPhase('feedback');
-      else setQ(next);
-      return nextA;
-    });
-  };
+  const [fractionGuess, setFractionGuess] = useState<number | null>(null);
+  const [positionGuess, setPositionGuess] = useState<number | null>(null);
+  const [symmetricGuess, setSymmetricGuess] = useState<boolean | null>(null);
+
+  const fractionOk = fractionGuess !== null && Math.abs(fractionGuess - truthFraction * 100) <= 8;
+  const positionOk = positionGuess !== null && Math.abs(positionGuess - truthPosition) <= 8;
+  const symmetricOk = symmetricGuess === truthSymmetric;
+  const allCorrect = fractionOk && positionOk && symmetricOk;
 
   const handleContinue = () => {
     onAnswer(allCorrect, Date.now() - startTime.current);
-    setPhase('asking');
-    setQ(1);
-    setAnswers({});
+    setPhase('watching');
+    setFractionGuess(null);
+    setPositionGuess(null);
+    setSymmetricGuess(null);
   };
 
+  const W = 200;
+  const H = 300;
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8">
-      <p className="text-lg text-neutral-200 mb-6">Analyze this face</p>
+    <div className="flex flex-col items-center min-h-screen p-6 w-full">
+      <p className="text-lg text-neutral-200 mb-6">
+        {phase === 'watching' ? 'Study this dot figure' : 'Reproduce your analysis'}
+      </p>
 
-      {/* Face (eye region = top 1/3, eye center at 1/3 height, symmetric) */}
-      <svg viewBox="0 0 140 220" width="168" height="264" className="mb-6">
-        <ellipse cx="70" cy="110" rx="60" ry="110" fill="#E0E0E0" />
-        <ellipse cx="70" cy="55" rx="20" ry="10" fill="#808080" />
-        <circle cx="45" cy="75" r="8" fill="#404040" />
-        <circle cx="95" cy="75" r="8" fill="#404040" />
-        <path d="M 55 110 Q 70 125 85 110" stroke="#808080" strokeWidth="3" fill="none" />
-      </svg>
+      <div className="relative mb-8" style={{ width: W, height: H, backgroundColor: stim.bg }}>
+        {/* Eye region boundary (horizontal) */}
+        <Dot at={{ x: 20, y: H * truthFraction }} size={12} color={stim.bar} />
+        <Dot at={{ x: W - 20, y: H * truthFraction }} size={12} color={stim.bar} />
+        {showLine && (
+          <Line
+            a={{ x: 20, y: H * truthFraction }}
+            b={{ x: W - 20, y: H * truthFraction }}
+            color="#4A9EFF"
+          />
+        )}
 
-      {phase === 'asking' && q === 1 && (
-        <div className="text-center">
-          <p className="mb-4">Q1 — What fraction of the face is the eye region?</p>
-          <div className="flex gap-2 justify-center">
-            {['1/2', '1/3', '1/4', '2/3'].map((f) => (
-              <button key={f} onClick={() => record('fraction', f, 2)} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg font-mono">
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Eyes */}
+        <Dot at={{ x: W / 2 - 30, y: H * truthFraction / 2 }} size={14} color={stim.bar} />
+        <Dot at={{ x: W / 2 + 30, y: H * truthFraction / 2 }} size={14} color={stim.bar} />
+
+        {/* Vertical axis through the middle */}
+        {showLine && <Line a={{ x: W / 2, y: 0 }} b={{ x: W / 2, y: H }} color="#4A9EFF" />}
+
+        {/* Bottom anchor dot */}
+        <Dot at={{ x: W / 2, y: H - 10 }} size={12} color={stim.bar} />
+      </div>
+
+      {phase === 'watching' && (
+        <button
+          onClick={() => setPhase('reproducing')}
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold"
+        >
+          I'VE STUDIED IT
+        </button>
       )}
 
-      {phase === 'asking' && q === 2 && (
-        <div className="text-center">
-          <p className="mb-4">Q2 — Where is the eye vertically on the face?</p>
-          <div className="flex gap-2 justify-center">
-            {['1/3', '1/2', '3/4'].map((p) => (
-              <button key={p} onClick={() => record('position', p, 3)} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg font-mono">
-                {p}
-              </button>
-            ))}
+      {phase === 'reproducing' && (
+        <div className="flex flex-col items-center gap-6 max-w-2xl">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-neutral-300">Eye region fraction (% from top):</label>
+            <input
+              type="number"
+              min={1}
+              max={99}
+              value={fractionGuess ?? ''}
+              onChange={(e) => setFractionGuess(Number(e.target.value) || null)}
+              className="w-24 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 text-center font-mono"
+            />
           </div>
-        </div>
-      )}
 
-      {phase === 'asking' && q === 3 && (
-        <div className="text-center">
-          <p className="mb-4">Q3 — Is the face symmetric?</p>
-          <div className="flex gap-2 justify-center">
-            <button onClick={() => record('symmetric', true, null)} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg">
-              SYMMETRIC
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-neutral-300">Eye vertical position (% from top):</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={positionGuess ?? ''}
+              onChange={(e) => setPositionGuess(Number(e.target.value) || null)}
+              className="w-24 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 text-center font-mono"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-neutral-300">Symmetric?</label>
+            <button
+              onClick={() => setSymmetricGuess(true)}
+              className={`px-4 py-2 rounded border ${
+                symmetricGuess === true
+                  ? 'bg-blue-600 border-blue-500 text-white'
+                  : 'bg-neutral-800 border-neutral-700'
+              }`}
+            >
+              YES
             </button>
-            <button onClick={() => record('symmetric', false, null)} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg">
-              ASYMMETRIC
+            <button
+              onClick={() => setSymmetricGuess(false)}
+              className={`px-4 py-2 rounded border ${
+                symmetricGuess === false
+                  ? 'bg-blue-600 border-blue-500 text-white'
+                  : 'bg-neutral-800 border-neutral-700'
+              }`}
+            >
+              NO
             </button>
           </div>
+
+          <button
+            onClick={() => setPhase('feedback')}
+            disabled={fractionGuess === null || positionGuess === null || symmetricGuess === null}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg font-semibold"
+          >
+            SUBMIT
+          </button>
         </div>
       )}
 
       {phase === 'feedback' && (
-        <div className={`p-6 rounded-lg border ${allCorrect ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'}`}>
+        <div
+          className={`p-6 rounded-lg border max-w-xl text-center ${
+            allCorrect ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'
+          }`}
+        >
           <p className={`text-lg font-semibold mb-2 ${allCorrect ? 'text-green-400' : 'text-red-400'}`}>
             {allCorrect ? '✓ ALL CORRECT' : '✗ NOT ALL CORRECT'}
           </p>
           <p className="text-sm text-neutral-300">
-            Eye region: <strong>{truthFraction}</strong> · Position:{' '}
-            <strong>{truthPosition}</strong> · Symmetric: <strong>{String(truthSymmetric)}</strong>
+            Fraction: <strong>{Math.round(truthFraction * 100)}%</strong> · Position:{' '}
+            <strong>{truthPosition}%</strong> · Symmetric: <strong>{String(truthSymmetric)}</strong>
           </p>
           <ContinueButton onClick={handleContinue} />
         </div>

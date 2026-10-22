@@ -1,95 +1,128 @@
-import { Link } from 'react-router-dom';
-import { useStore } from '@kata/db';
-import { ALL_DOMAINS } from '../registry';
-import { MASTERY } from '@kata/core';
+﻿import { useNavigate } from 'react-router-dom';
+import { useProgress } from '../hooks/useProgress';
+import { getVariable } from '../registry';
 
 export function Progress() {
-  const variables = useStore((s) => s.variables);
+  const navigate = useNavigate();
+  const { summary, loading, refresh } = useProgress();
+
+  if (loading || !summary) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-neutral-400">
+        Loading progress…
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <Link to="/" className="text-neutral-400 hover:text-neutral-200 mb-8 inline-block">
-        ← Home
-      </Link>
-      <h1 className="text-4xl font-bold mb-2">Progress</h1>
-      <p className="text-neutral-400 mb-10">
-        Mastery tracking across all tracked variables
-      </p>
+    <div className="min-h-screen p-8">
+      <div className="max-w-3xl mx-auto">
+        <button
+          onClick={() => navigate('/')}
+          className="text-neutral-400 hover:text-neutral-200 text-sm mb-6"
+        >
+          ← Home
+        </button>
 
-      {ALL_DOMAINS.map((domain) => {
-        const domainVariables = variables.filter(
-          (v) =>
-            domain.subskills.some((s) => s.id === v.subskillId) && v.domain === domain.id
-        );
-
-        if (domainVariables.length === 0) return null;
-
-        const mastered = domainVariables.filter((v) => v.accuracy >= MASTERY.L1A).length;
-
-        return (
-          <div key={domain.id} className="mb-10">
-            <h2 className="text-xl font-semibold mb-1">{domain.name}</h2>
-            <p className="text-sm text-neutral-500 mb-4">
-              {mastered} of {domainVariables.length} variables mastered (≥ 90%)
-            </p>
-
-            <div className="space-y-2">
-              {domainVariables.map((v) => {
-                const subskill = domain.subskills.find((s) => s.id === v.subskillId);
-                const variable = subskill?.variables.find((x) => x.id === v.variableId);
-                const mastered = v.accuracy >= MASTERY.L1A;
-
-                return (
-                  <div
-                    key={v.id}
-                    className="flex items-center gap-4 p-3 bg-neutral-900 border border-neutral-800 rounded-lg"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-neutral-500">
-                          {v.variableId}
-                        </span>
-                        <span className="text-sm font-medium truncate">
-                          {variable?.name ?? v.variableId}
-                        </span>
-                        <span className="text-xs text-neutral-500 truncate">
-                          · {subskill?.name ?? v.subskillId}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="w-32 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${
-                          mastered ? 'bg-green-500' : 'bg-blue-500'
-                        }`}
-                        style={{ width: `${Math.min(100, v.accuracy * 100)}%` }}
-                      />
-                    </div>
-
-                    <span className="text-xs font-mono text-neutral-400 w-12 text-right">
-                      {Math.round(v.accuracy * 100)}%
-                    </span>
-
-                    <span className="text-xs text-neutral-600 w-16 text-right">
-                      {v.trialCount} trials
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-
-      {variables.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-neutral-400 mb-2">No progress yet.</p>
-          <p className="text-neutral-500 text-sm">
-            Complete a drill to start tracking your accuracy.
-          </p>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Progress</h1>
+          <button
+            onClick={refresh}
+            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm"
+          >
+            REFRESH
+          </button>
         </div>
-      )}
+
+        {/* By subskill */}
+        <Section title="By Subskill">
+          <div className="space-y-2">
+            {Object.entries(summary.bySubskill).map(([id, data]) => (
+              <div
+                key={id}
+                className="flex items-center gap-3 p-3 bg-neutral-900 border border-neutral-800 rounded-lg"
+              >
+                <div className="flex-1 text-sm font-mono">{id}</div>
+                <div className="w-48 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500"
+                    style={{ width: `${data.accuracy * 100}%` }}
+                  />
+                </div>
+                <div className="text-xs text-neutral-500 font-mono w-16 text-right">
+                  {Math.round(data.accuracy * 100)}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        {/* Weakest */}
+        <Section title="Weakest Variables">
+          <div className="space-y-2">
+            {summary.weakest.map((s) => {
+              const v = getVariable(s.variableId);
+              return (
+                <div
+                  key={s.variableId}
+                  className="flex items-center gap-3 p-3 bg-neutral-900 border border-neutral-800 rounded-lg"
+                >
+                  <div className="flex-1 text-sm">
+                    {v?.name ?? s.variableId}
+                  </div>
+                  <div className="text-xs text-neutral-500 font-mono">
+                    {Math.round(s.accuracy * 100)}%
+                  </div>
+                </div>
+              );
+            })}
+            {summary.weakest.length === 0 && (
+              <p className="text-sm text-neutral-500">Not enough data yet.</p>
+            )}
+          </div>
+        </Section>
+
+        {/* Recently practiced */}
+        <Section title="Recently Practiced">
+          <div className="space-y-2">
+            {summary.recentlyPracticed.map((s) => {
+              const v = getVariable(s.variableId);
+              return (
+                <div
+                  key={s.variableId}
+                  className="flex items-center gap-3 p-3 bg-neutral-900 border border-neutral-800 rounded-lg"
+                >
+                  <div className="flex-1 text-sm">
+                    {v?.name ?? s.variableId}
+                  </div>
+                  <div className="text-xs text-neutral-500">
+                    {s.lastPracticed
+                      ? new Date(s.lastPracticed).toLocaleDateString()
+                      : '—'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-8">
+      <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+        {title}
+      </h2>
+      {children}
     </div>
   );
 }

@@ -1,83 +1,115 @@
 import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
-import { RatioChip } from '@kata/rendering';
+import { DotPair } from '@kata/rendering';
 import { ContinueButton } from '@kata/ui';
-import { RATIO_OPTIONS, resolveRatio, ratioWithinTolerance } from '../p2-utils';
+import {
+  resolveRatioRange,
+  readStimulusColor,
+  scaledPairLayout,
+  resolveOrientation,
+} from '../p2-utils';
 
 type Phase = 'judging' | 'feedback';
 
-export function V1RatioDrill({ onAnswer, settings }: DrillProps) {
+export function V1RatioDrill({ onAnswer, variableParams }: DrillProps) {
   const startTime = useRef(Date.now());
-  const [picked, setPicked] = useState<number | null>(null);
+  const [guess, setGuess] = useState<number | null>(null);
   const [phase, setPhase] = useState<Phase>('judging');
 
-  const ratioRange = (settings?.ratioRange as string) ?? 'moderate';
-  const orientation = (settings?.orientation as string) ?? 'horizontal';
-  const tolerance = (settings?.tolerance as string) === 'tight' ? 0 : settings?.tolerance === 'loose' ? 1 : 0.5;
+  const rangeKey = (variableParams?.ratioRange as string) ?? 'moderate';
+  const ratioMin = variableParams?.ratioMin as number | undefined;
+  const ratioMax = variableParams?.ratioMax as number | undefined;
+  const showLine = String(variableParams?.stim_showLine ?? 'true') === 'true';
+  const tolerance = (variableParams?.task_tolerance as number) ?? 0;
 
-  const trueB = useMemo(() => resolveRatio(ratioRange), [ratioRange]);
-  const correct = picked !== null && ratioWithinTolerance(picked, trueB, tolerance);
+  const [lo, hi] = useMemo(
+    () => resolveRatioRange(rangeKey, ratioMin, ratioMax),
+    [rangeKey, ratioMin, ratioMax],
+  );
+  const trueB = useMemo(
+    () => lo + Math.floor(Math.random() * (hi - lo + 1)),
+    [lo, hi],
+  );
 
-  const handlePick = (b: number) => {
-    if (phase === 'feedback') return;
-    setPicked(b);
-    setPhase('feedback');
-  };
+  const orientation = useMemo(() => resolveOrientation(variableParams), [variableParams]);
+  const layout = useMemo(() => scaledPairLayout(trueB, orientation), [trueB, orientation]);
+  const stim = readStimulusColor(variableParams);
+
+  const correct = guess !== null && Math.abs(guess - trueB) <= tolerance;
 
   const handleContinue = () => {
-    const responseTime = Date.now() - startTime.current;
-    onAnswer(correct, responseTime);
+    onAnswer(correct, Date.now() - startTime.current);
     setPhase('judging');
-    setPicked(null);
+    setGuess(null);
   };
 
+  const anchorX = orientation === 'horizontal' ? 40 : layout.chipWidth / 2;
+  const anchorY = orientation === 'horizontal' ? layout.chipHeight / 2 : 40;
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8">
-      <p className="text-lg text-neutral-200 mb-1">Estimate the ratio A : B</p>
+    <div className="flex flex-col items-center min-h-screen p-6 w-full">
+      <p className="text-lg text-neutral-200 mb-1">What is the ratio 1 : N?</p>
+      <p className="text-sm text-neutral-500 mb-2">
+        The dim dot marks 1 unit from the anchor. The bright dot marks N units.
+      </p>
       <p className="text-sm text-neutral-500 mb-8">
-        Compare the two bars and pick the closest ratio.
+        Type the value of N.
       </p>
 
-      <div className="mb-8 rounded-lg overflow-hidden border border-neutral-700">
-        <RatioChip
-          width={340}
-          height={160}
-          ratioA={1}
-          ratioB={trueB}
-          orientation={orientation as 'horizontal' | 'vertical'}
+      <div className="mb-8" style={{ minHeight: layout.chipHeight + 40 }}>
+        <DotPair
+          width={layout.chipWidth}
+          height={layout.chipHeight}
+          distance={layout.unitPx * trueB}
+          orientation={orientation}
+          anchorX={anchorX}
+          anchorY={anchorY}
+          showLine={showLine}
+          dotColor={stim.bar}
+          unitColor="#8A8A8A"
+          unitMarkerPx={layout.unitPx}
+          backgroundColor={stim.bg}
         />
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-        {RATIO_OPTIONS.map((opt) => {
-          const b = parseInt(opt.split(':')[1] ?? '0', 10);
-          const active = phase === 'feedback' && picked === b;
-          return (
-            <button
-              key={opt}
-              onClick={() => handlePick(b)}
-              className={`px-4 py-2 rounded-lg border text-sm font-mono transition-colors ${
-                active
-                  ? 'bg-blue-600 border-blue-500 text-white'
-                  : 'bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700'
-              }`}
-            >
-              {opt}
-            </button>
-          );
-        })}
-      </div>
+      <div className="h-4" aria-hidden />
 
-      {phase === 'feedback' && picked !== null && (
+      <p className="text-sm font-mono text-neutral-400 mb-4">
+        {guess !== null ? `your answer — 1 : ${guess}` : 'type a ratio'}
+      </p>
+
+      {phase === 'judging' && (
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-neutral-300 font-mono text-sm">1 :</span>
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={guess ?? ''}
+            onChange={(e) => setGuess(Number(e.target.value) || null)}
+            className="w-24 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 text-center font-mono"
+          />
+          <button
+            onClick={() => setPhase('feedback')}
+            disabled={guess === null}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg font-semibold"
+          >
+            SUBMIT
+          </button>
+        </div>
+      )}
+
+      {phase === 'feedback' && guess !== null && (
         <div
-          className={`mt-8 p-6 rounded-lg border ${correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'}`}
+          className={`p-6 rounded-lg border max-w-xl text-center ${
+            correct ? 'bg-green-950/40 border-green-800' : 'bg-red-950/40 border-red-800'
+          }`}
         >
           <p className={`text-lg font-semibold mb-2 ${correct ? 'text-green-400' : 'text-red-400'}`}>
             {correct ? '✓ CORRECT' : '✗ INCORRECT'}
           </p>
           <p className="text-sm text-neutral-300">
-            The true ratio was <strong>1:{trueB}</strong>. You picked{' '}
-            <strong>{picked === 1 ? '1:1' : `1:${picked}`}</strong>.
+            The ratio was <strong>1 : {trueB}</strong>. You said <strong>1 : {guess}</strong>.
           </p>
           <ContinueButton onClick={handleContinue} />
         </div>
