@@ -3,5 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@8.15.0"
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "dev:desktop": "tauri dev",
+    "dev:web": "vite preview",
+    "build:desktop": "tauri build",
+    "build:web": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  }
 }
