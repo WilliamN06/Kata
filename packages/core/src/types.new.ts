@@ -180,12 +180,21 @@ export interface Subskill {
   definition: string;
   variables: VariableId[];
   drills: Record<TaskType, DrillDefinition>;
+  drillsByVariable?: Record<string, Partial<Record<TaskType, DrillDefinition>>>;
+  integrationGroups?: IntegrationGroup[];
+}
+
+export interface IntegrationGroup {
+  id: string;
+  name: string;
+  variables: VariableId[];
 }
 
 export interface DrillDefinition {
   variableId: VariableId;
   renderer: unknown;
   defaultTrials: number;
+  description?: string;
 }
 
 export interface DrillProps {

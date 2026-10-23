@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useMemo, useRef } from 'react';
+﻿import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { DrillConfiguration, TrialResult, PerceptualRating } from '@kata/core';
 import { createStaircase, updateStaircase } from '@kata/core';
 import type { StaircaseState } from '@kata/core';
@@ -20,6 +20,14 @@ export function useDrillState(config: DrillConfiguration | null) {
     createStaircase(config ? getInitialValue(config) : 1)
   );
   const startTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (!config) return;
+    setTrials([]);
+    setComplete(false);
+    setStaircase(createStaircase(getInitialValue(config)));
+    startTimeRef.current = Date.now();
+  }, [config?.id]);
 
   const recordTrial = useCallback(
     async (
@@ -112,6 +120,7 @@ function getInitialValue(config: DrillConfiguration): number {
   const v = config.variableParams;
   if (typeof v.intervalValue === 'number') return v.intervalValue;
   if (typeof v.ratioValue === 'number') return v.ratioValue;
+  if (typeof v.angleValue === 'number') return v.angleValue;
   if (typeof v.offset === 'number') return v.offset;
   if (typeof v.range === 'number') return v.range;
   return 1;

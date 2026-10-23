@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import type {
   Variable,
   VariableDimension,
@@ -182,6 +182,20 @@ function TaskConditionsControls({
           <option value="session-end">Session end</option>
         </select>
       </Row>
+      {values.feedbackTiming === 'delayed' && (
+        <Row label="Feedback delay">
+          <SelectOrNumber
+            presets={[0.5, 1, 2, 5]}
+            value={values.feedbackDelaySeconds}
+            unit="s"
+            onChange={(v) =>
+              onChange({
+                feedbackDelaySeconds: typeof v === 'number' ? v : 1,
+              })
+            }
+          />
+        </Row>
+      )}
       <Row label="Feedback type">
         <select
           value={values.feedbackType}
@@ -447,6 +461,10 @@ function NumberInput({
   onChange: (v: number) => void;
 }) {
   const [local, setLocal] = useState(String(value));
+
+  useEffect(() => {
+    setLocal(String(value));
+  }, [value]);
 
   const commit = () => {
     const num = Number(local);

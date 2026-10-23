@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback, useMemo } from 'react';
+﻿import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type {
   DrillConfiguration,
   TaskConditions,
@@ -17,6 +17,7 @@ export function useSettings(
 ) {
   const [config, setConfig] = useState<DrillConfiguration | null>(null);
   const [loading, setLoading] = useState(true);
+  const configRef = useRef<DrillConfiguration | null>(null);
 
   const configId = useMemo(
     () => `${subskillId}:${variableId}:${taskType}`,
@@ -27,6 +28,7 @@ export function useSettings(
     let cancelled = false;
 
     async function load() {
+      setLoading(true);
       try {
         const variable: Variable | undefined = getVariable(variableId);
         const variableParams: Record<string, string | number> = {};
@@ -72,7 +74,7 @@ export function useSettings(
           },
         };
 
-        console.log('[useSettings] LOADED', configId, resolved);
+        configRef.current = resolved;
         setConfig(resolved);
         setLoading(false);
       } catch (err) {
@@ -88,32 +90,49 @@ export function useSettings(
     };
   }, [configId, subskillId, variableId, taskType]);
 
-  const updateTaskConditions = useCallback(async (patch: Partial<TaskConditions>) => {
-    setConfig((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, taskConditions: { ...prev.taskConditions, ...patch } };
-      saveDrillConfig(next).catch(() => {});
-      return next;
+  const persist = useCallback((next: DrillConfiguration) => {
+    configRef.current = next;
+    setConfig(next);
+    saveDrillConfig(next).catch((err) => {
+      console.warn('[useSettings] saveDrillConfig failed:', err);
     });
   }, []);
 
-  const updateVariableParams = useCallback(async (patch: Record<string, string | number>) => {
-    setConfig((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, variableParams: { ...prev.variableParams, ...patch } };
-      saveDrillConfig(next).catch(() => {});
-      return next;
-    });
-  }, []);
+  const updateTaskConditions = useCallback(
+    (patch: Partial<TaskConditions>) => {
+      const prev = configRef.current;
+      if (!prev) return;
+      persist({
+        ...prev,
+        taskConditions: { ...prev.taskConditions, ...patch },
+      });
+    },
+    [persist]
+  );
 
-  const updateStimulusParams = useCallback(async (patch: Record<string, string | number>) => {
-    setConfig((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, stimulusParams: { ...prev.stimulusParams, ...patch } };
-      saveDrillConfig(next).catch(() => {});
-      return next;
-    });
-  }, []);
+  const updateVariableParams = useCallback(
+    (patch: Record<string, string | number>) => {
+      const prev = configRef.current;
+      if (!prev) return;
+      persist({
+        ...prev,
+        variableParams: { ...prev.variableParams, ...patch },
+      });
+    },
+    [persist]
+  );
+
+  const updateStimulusParams = useCallback(
+    (patch: Record<string, string | number>) => {
+      const prev = configRef.current;
+      if (!prev) return;
+      persist({
+        ...prev,
+        stimulusParams: { ...prev.stimulusParams, ...patch },
+      });
+    },
+    [persist]
+  );
 
   const reset = useCallback(async () => {
     await resetDrillConfig(configId);
@@ -127,7 +146,7 @@ export function useSettings(
 
     const domain = (subskillId.split(':')[0] === 'drawing' ? 'drawing' : 'music') as 'drawing' | 'music';
 
-    setConfig({
+    const next: DrillConfiguration = {
       id: configId,
       domain,
       subskillId: subskillId as any,
@@ -136,7 +155,9 @@ export function useSettings(
       taskConditions: DEFAULT_TASK_CONDITIONS,
       variableParams,
       stimulusParams,
-    });
+    };
+    configRef.current = next;
+    setConfig(next);
   }, [configId, variableId, subskillId, taskType]);
 
   return useMemo(

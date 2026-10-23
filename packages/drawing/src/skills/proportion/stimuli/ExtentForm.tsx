@@ -3,6 +3,7 @@
 export type MarkType =
   | 'three-dots'
   | 'line'
+  | 'line-with-dots'
   | 'line-with-three-dots';
 
 export type Relationship =
@@ -49,15 +50,15 @@ const CONTRAST_COLOURS = {
 
 // Minimal/clear backgrounds — no muddy grey fill.
 const BG_COLOURS: Record<BackgroundValue, string> = {
-  light: '#f5f5f5',
-  mid: '#1a1a1a',
-  dark: '#0a0a0a',
-  grid: '#0a0a0a',
-  transparent: 'transparent',
+  light: '#000000',
+  mid: '#000000',
+  dark: '#000000',
+  grid: '#000000',
+  transparent: '#000000',
 };
 
 function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
 export function ExtentForm(props: ExtentFormProps) {
@@ -123,11 +124,13 @@ export function ExtentForm(props: ExtentFormProps) {
   // inside the window with padding. This is the fix for the angle
   // going outside the space.
   const layout = useMemo(() => {
-    const padding = Math.min(dims.width, dims.height) * 0.12;
+    const padding = Math.min(dims.width, dims.height) * 0.1;
     const usableW = dims.width - padding * 2;
     const usableH = dims.height - padding * 2;
 
-    const rawA = baseLength * scale;
+    const shortSide = Math.min(usableW, usableH);
+    const referenceFraction = Math.min(0.9, Math.max(0.05, baseLength / 100));
+    const rawA = shortSide * referenceFraction * scale;
     const rawB = rawA * ratio;
 
     // Compute the bounding box each relationship needs, given rawA/rawB,
@@ -264,8 +267,14 @@ export function ExtentForm(props: ExtentFormProps) {
     }
   }, [dims, baseLength, scale, ratio, angle, jointAngle, position, resolvedRelationship]);
 
-  const showDots = markType === 'three-dots' || markType === 'line-with-three-dots';
-  const showLines = markType === 'line' || markType === 'line-with-three-dots';
+  const showDots =
+    markType === 'three-dots' ||
+    markType === 'line-with-dots' ||
+    markType === 'line-with-three-dots';
+  const showLines =
+    markType === 'line' ||
+    markType === 'line-with-dots' ||
+    markType === 'line-with-three-dots';
 
   const dashArray =
     lineStyle === 'dashed' ? lineThickness * 3 + ',' + lineThickness * 2
@@ -276,26 +285,25 @@ export function ExtentForm(props: ExtentFormProps) {
     ? {
         x: 40,
         y: dims.height - 40,
-        length: Math.min(baseLength * scale * 0.4, 100),
+        length: Math.min(
+          Math.hypot(layout.a.x2 - layout.a.x1, layout.a.y2 - layout.a.y1) * 0.4,
+          120
+        ),
       }
     : null;
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative"
-      style={{
-        background: bg,
-        minHeight: 400,
-        borderRadius: 8,
-      }}
+      className="w-full h-full relative overflow-hidden"
+      style={{ background: bg }}
     >
       <svg
         width={dims.width}
         height={dims.height}
         style={{ position: 'absolute', inset: 0, display: 'block' }}
         role="img"
-        aria-label={'Extent ratio 1:' + ratio.toFixed(2) + ', ' + resolvedRelationship}
+        aria-label="Two extents to compare"
       >
         {/* Minimal grid */}
         {backgroundValue === 'grid' && (
@@ -391,12 +399,6 @@ export function ExtentForm(props: ExtentFormProps) {
         )}
       </svg>
 
-      <div
-        className="absolute bottom-2 right-3 text-xs font-mono opacity-40 pointer-events-none"
-        style={{ color: colours.fg }}
-      >
-        {markType + ' · ' + resolvedRelationship + ' · 1:' + ratio.toFixed(2)}
-      </div>
     </div>
   );
 }

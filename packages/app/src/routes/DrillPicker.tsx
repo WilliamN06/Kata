@@ -1,6 +1,11 @@
 ﻿import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { getSubskillsByDomain, getVariablesForSubskill, getTaskTypes } from '../registry';
+import { useMemo, useState } from 'react';
+import {
+  getSubskillsByDomain,
+  getVariablesForSubskill,
+  getTaskTypes,
+  getTaskTypesForVariable,
+} from '../registry';
 
 export function DrillPicker() {
   const { domain } = useParams<{ domain: 'drawing' | 'music' }>();
@@ -14,11 +19,20 @@ export function DrillPicker() {
   const variables = selectedSubskill
     ? getVariablesForSubskill(selectedSubskill)
     : [];
-  const taskTypes = getTaskTypes();
+  const taskTypes = useMemo(
+    () =>
+      selectedSubskill && selectedVariable
+        ? getTaskTypesForVariable(selectedSubskill, selectedVariable)
+        : getTaskTypes(),
+    [selectedSubskill, selectedVariable]
+  );
+  const activeTaskType = taskTypes.some((task) => task.id === selectedTaskType)
+    ? selectedTaskType
+    : taskTypes[0]?.id ?? '';
 
   const start = () => {
-    if (!selectedSubskill || !selectedVariable || !selectedTaskType) return;
-    navigate(`/drill/${selectedSubskill}/${selectedVariable}/${selectedTaskType}`);
+    if (!selectedSubskill || !selectedVariable || !activeTaskType) return;
+    navigate(`/drill/${selectedSubskill}/${selectedVariable}/${activeTaskType}`);
   };
 
   return (
@@ -55,7 +69,19 @@ export function DrillPicker() {
           <Field label="Variable">
             <select
               value={selectedVariable}
-              onChange={(e) => setSelectedVariable(e.target.value)}
+              onChange={(e) => {
+                const nextVariable = e.target.value;
+                setSelectedVariable(nextVariable);
+                if (nextVariable && selectedSubskill) {
+                  const nextTasks = getTaskTypesForVariable(
+                    selectedSubskill,
+                    nextVariable
+                  );
+                  if (!nextTasks.some((task) => task.id === selectedTaskType)) {
+                    setSelectedTaskType(nextTasks[0]?.id ?? '');
+                  }
+                }
+              }}
               className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg"
             >
               <option value="">— pick a variable —</option>
@@ -69,7 +95,7 @@ export function DrillPicker() {
 
           <Field label="Task type">
             <select
-              value={selectedTaskType}
+              value={activeTaskType}
               onChange={(e) => setSelectedTaskType(e.target.value)}
               className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg"
             >

@@ -1,4 +1,4 @@
-﻿interface SkillDomain {
+interface SkillDomain {
   id: string;
   name: string;
   subskills: any[];
@@ -80,7 +80,7 @@ export function getSubskillsByDomain(domain: 'drawing' | 'music'): Subskill[] {
 }
 
 export function getVariablesForSubskill(subskillId: string): Variable[] {
-  const domainId = subskillId.split(':')[0];
+  const domainId = subskillId.split(':')[0] ?? '';
   const subskill = getSubskill(domainId, subskillId);
   if (!subskill) return [];
   return subskill.variables
@@ -100,7 +100,24 @@ export function getTaskTypes(): Array<{ id: string; label: string }> {
   ];
 }
 
+export function getTaskTypesForVariable(
+  subskillId: string,
+  variableId: string
+): Array<{ id: string; label: string }> {
+  const domainId = subskillId.split(':')[0] ?? '';
+  const subskill = getSubskill(domainId, subskillId) as
+    | (Subskill & {
+        drillsByVariable?: Record<
+          string,
+          Partial<Record<string, { renderer: unknown }>>
+        >;
+      })
+    | undefined;
+  const byVariable = subskill?.drillsByVariable?.[variableId];
 
+  if (!byVariable) return getTaskTypes();
+  return getTaskTypes().filter((task) => Boolean(byVariable[task.id]));
+}
 
 
 

@@ -5,6 +5,7 @@ import { getSubskill, getVariable } from '../registry';
 import { useSettings } from '../hooks/useSettings';
 import { useDrillState } from '../hooks/useDrillState';
 import { SettingsPanel } from './SettingsPanel';
+import { RatingPanel } from './RatingPanel';
 
 export function DrillScreen() {
   const { domainId, subskillId, variableId, taskType } = useParams<{
@@ -51,13 +52,55 @@ export function DrillScreen() {
   } = useDrillState(config);
 
   const [trialKey, setTrialKey] = useState(0);
+  const [sessionStart, setSessionStart] = useState(() => Date.now());
   const advanceRef = useRef<NodeJS.Timeout | null>(null);
+  const answerRef = useRef<
+    (result: {
+      correct: boolean;
+      responseTimeMs: number;
+      userResponse: unknown;
+      correctResponse: unknown;
+    }) => void
+  >(() => {});
 
   useEffect(() => {
     return () => {
       if (advanceRef.current) clearTimeout(advanceRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    setSessionStart(Date.now());
+  }, [config?.id]);
+
+  useEffect(() => {
+    if (!config || loading || complete) return;
+    const limit = config.taskConditions.sessionLengthMinutes;
+    if (limit === 'endless') return;
+
+    const id = setInterval(() => {
+      if (Date.now() - sessionStart >= limit * 60 * 1000) {
+        endSession();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [config, loading, complete, sessionStart, endSession]);
+
+  useEffect(() => {
+    if (!config || loading || complete || feedback || pendingRating) return;
+    const deadline = config.taskConditions.responseDeadlineSeconds;
+    if (deadline === 'none') return;
+
+    const id = setTimeout(() => {
+      answerRef.current({
+        correct: false,
+        responseTimeMs: deadline * 1000,
+        userResponse: 'timeout',
+        correctResponse: 'no response',
+      });
+    }, deadline * 1000);
+    return () => clearTimeout(id);
+  }, [trialKey, config, loading, complete, feedback, pendingRating]);
 
   const goBack = () => {
     const domain = domainId ?? subskillId?.split(':')[0] ?? 'music';
@@ -84,31 +127,11 @@ export function DrillScreen() {
   }
 
   const safeTaskType = taskType ?? '';
-  // Prefer per-variable drill routing when the subskill provides it
-  const subskillAny = subskill as any;
-  const drillFromVariable = subskillAny.drillsByVariable?.[variableId ?? '']?.[safeTaskType];
-  const fallbackDrill = subskill.drills[safeTaskType as keyof typeof subskill.drills];
+  const drill =
+    subskill.drillsByVariable?.[variableId ?? '']?.[
+      safeTaskType as keyof typeof subskill.drills
+    ] ?? subskill.drills[safeTaskType as keyof typeof subskill.drills];
 
-  // Handle both shapes: drillsByVariable may be a raw component OR { renderer, variableId, defaultTrials }
-  const resolvedRenderer = (
-    (drillFromVariable?.renderer ??
-     (typeof drillFromVariable === 'function' ? drillFromVariable : undefined)) ??
-    fallbackDrill?.renderer
-  ) as React.ComponentType<DrillProps> | undefined;
-
-  const drill = { renderer: resolvedRenderer, defaultTrials: 20 };
-
-  console.log('[DrillScreen] Resolved drill:', {
-    variableId,
-    taskType: safeTaskType,
-    usedDrillsByVariable: !!drillFromVariable,
-    rendererType: typeof resolvedRenderer,
-    rendererName: resolvedRenderer?.name ?? '(unknown)'
-  });
-
-  if (!resolvedRenderer) {
-    console.error('[DrillScreen] No renderer found for', { variableId, taskType: safeTaskType, drillFromVariable, fallbackDrill });
-  }
   if (!drill) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
@@ -134,11 +157,16 @@ export function DrillScreen() {
   }) => {
     if (feedback || pendingRating) return;
 
-    setFeedback({
-      correct: result.correct,
-      userResponse: result.userResponse,
-      correctResponse: result.correctResponse,
-    });
+    const showFeedback =
+      config.taskConditions.feedbackTiming !== 'session-end';
+
+    if (showFeedback) {
+      setFeedback({
+        correct: result.correct,
+        userResponse: result.userResponse,
+        correctResponse: result.correctResponse,
+      });
+    }
 
     if (config.taskConditions.enableRatings) {
       setPendingRating({
@@ -152,16 +180,21 @@ export function DrillScreen() {
 
     await recordTrial(result.correct, result.userResponse, result.correctResponse, result.responseTimeMs);
 
-    const feedbackMs =
-      config.taskConditions.feedbackTiming === 'delayed'
-        ? Math.max(500, config.taskConditions.feedbackDelaySeconds * 1000)
-        : 900;
+    const intervalMs =
+      Math.max(0, config.taskConditions.interTrialIntervalSeconds) * 1000;
+    const feedbackMs = showFeedback
+      ? (config.taskConditions.feedbackTiming === 'delayed'
+          ? Math.max(500, config.taskConditions.feedbackDelaySeconds * 1000)
+          : 900) + intervalMs
+      : Math.max(150, intervalMs);
 
     advanceRef.current = setTimeout(() => {
       setFeedback(null);
       setTrialKey((k) => k + 1);
     }, feedbackMs);
   };
+
+  answerRef.current = handleAnswer;
 
   const advanceAfterRating = async (rating?: PerceptualRating) => {
     if (!pendingRating) return;
@@ -173,10 +206,12 @@ export function DrillScreen() {
       rating
     );
     setPendingRating(null);
-    setTimeout(() => {
+    const intervalMs =
+      Math.max(0, config.taskConditions.interTrialIntervalSeconds) * 1000;
+    advanceRef.current = setTimeout(() => {
       setFeedback(null);
       setTrialKey((k) => k + 1);
-    }, 900);
+    }, 300 + intervalMs);
   };
 
   if (complete) {
@@ -208,6 +243,7 @@ export function DrillScreen() {
             <button
               onClick={() => {
                 restart();
+                setSessionStart(Date.now());
                 setTrialKey((k) => k + 1);
               }}
               className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold"
@@ -269,6 +305,17 @@ export function DrillScreen() {
           onAnswer={handleAnswer}
         />
       </div>
+
+      {pendingRating && (
+        <RatingPanel
+          onSubmit={(rating) => {
+            void advanceAfterRating(rating);
+          }}
+          onSkip={() => {
+            void advanceAfterRating();
+          }}
+        />
+      )}
 
       {feedback && !pendingRating && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-40">

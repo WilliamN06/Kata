@@ -53,7 +53,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
           { value: 'line-with-dots', label: 'Lines with end dots' },
           { value: 'line-with-three-dots', label: 'Lines with 3 dots (mid marked)' },
         ],
-        defaultValue: 'two-dots',
+        defaultValue: 'line-with-dots',
         helpText:
           'How the two extents are drawn. Dots = endpoints only. Lines = the extent itself. Line-with-dots = both.',
       },
@@ -101,10 +101,10 @@ export const PROPORTION_VARIABLES: Variable[] = [
         id: 'baseLength',
         label: 'Reference Length',
         kind: 'number',
-        defaultValue: 200,
-        range: { min: 20, max: 2000, step: 10, unit: 'px', extendable: true },
+        defaultValue: 35,
+        range: { min: 10, max: 90, step: 1, unit: '%', extendable: false },
         helpText:
-          'Length of the reference extent in pixels. The target is baseLength × ratio. Whole thing auto-scales to fit the window.',
+          'Reference extent as a percentage of the available window. The target is reference x ratio; both are fitted to the stage.',
       },
 
       // ---------- TOLERANCE ----------
@@ -267,8 +267,26 @@ export const PROPORTION_VARIABLES: Variable[] = [
         id: 'lineLength',
         label: 'Line Length',
         kind: 'number',
-        defaultValue: 300,
-        range: { min: 20, max: 2000, step: 10, unit: 'px', extendable: true },
+        defaultValue: 55,
+        range: { min: 10, max: 90, step: 1, unit: '%', extendable: false },
+        helpText:
+          'Line length as a percentage of the available window. The whole angle auto-fits the stage.',
+      },
+      {
+        id: 'tolerance',
+        label: 'Accepted error',
+        kind: 'number',
+        defaultValue: 8,
+        range: { min: 1, max: 45, step: 1, unit: 'degrees', extendable: true },
+        helpText: 'How close an estimate must be to count as correct.',
+      },
+      {
+        id: 'comparisonOffset',
+        label: 'Comparison offset',
+        kind: 'number',
+        defaultValue: 8,
+        range: { min: 1, max: 45, step: 1, unit: 'degrees', extendable: true },
+        helpText: 'Angular difference used by discrimination trials.',
       },
     ],
     stimulusParameters: [
