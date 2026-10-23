@@ -6,14 +6,21 @@ export function readProportionParams(
   variableParams: Record<string, string | number>,
   stimulusParams: Record<string, string | number>
 ) {
+  const rawLower = Number(variableParams.lowerBound) || 1;
+  const rawUpper = Number(variableParams.upperBound) || 10;
+  const lowerBound = Math.max(0.01, Math.min(rawLower, rawUpper));
+  const upperBound = Math.max(lowerBound, Math.max(rawLower, rawUpper));
+
   return {
+    lowerBound,
+    upperBound,
     ratioDirection: (variableParams.ratioDirection as RatioDirection) || 'both',
     markType: (variableParams.markType as string) || 'line-with-dots',
     relationship:
       (variableParams.relationship as string) || 'parallel-same-axis',
     angle: Number(variableParams.angle) || 0,
     jointAngle: Number(variableParams.jointAngle) || 90,
-    baseLength: Number(variableParams.baseLength) || 35,
+    baseLength: Number(variableParams.baseLength) || 50,
     tolerance: Number(variableParams.tolerance) || 0.15,
     showLabels: String(variableParams.showLabels) === 'on',
     dotSize: Number(stimulusParams.dotSize) || 14,
@@ -27,10 +34,30 @@ export function readProportionParams(
   };
 }
 
-export function resolveRatio(currentValue: number, fallback = 2): number {
+export function resolveRatio(
+  currentValue: number,
+  fallback = 2,
+  lowerBound = 1,
+  upperBound = 10
+): number {
   const value = Number(currentValue);
   const ratio = Number.isFinite(value) && value > 0 ? value : fallback;
-  return Math.min(12, Math.max(1.05, ratio));
+  const lower = Math.max(0.01, lowerBound);
+  const upper = Math.max(lower, upperBound);
+  return Math.min(upper, Math.max(lower, ratio));
+}
+
+export function ratioForParams(
+  currentValue: number,
+  p: ReturnType<typeof readProportionParams>,
+  fallback = 2
+): number {
+  return resolveRatio(
+    currentValue,
+    fallback,
+    p.lowerBound,
+    p.upperBound
+  );
 }
 
 export function resolveExtentRatio(
@@ -47,8 +74,26 @@ export function resolveExtentRatio(
   return bIsLonger ? ratio : 1 / ratio;
 }
 
-export function ratioOptions(target: number, count = 4): number[] {
-  const clamp = (value: number) => Math.min(12, Math.max(1.05, value));
+export function formRatio(
+  ratio: number,
+  p: ReturnType<typeof readProportionParams>
+): number {
+  return p.markType === 'two-dots'
+    ? ratio
+    : resolveExtentRatio(ratio, p.ratioDirection);
+}
+
+export function ratioOptions(
+  target: number,
+  count = 4,
+  lowerBound = 1,
+  upperBound = 10
+): number[] {
+  const clamp = (value: number) =>
+    Math.min(
+      Math.max(lowerBound, upperBound),
+      Math.max(Math.max(0.01, lowerBound), value)
+    );
   const candidates = [
     target,
     target - 0.35,

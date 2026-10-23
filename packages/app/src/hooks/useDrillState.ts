@@ -17,7 +17,7 @@ export function useDrillState(config: DrillConfiguration | null) {
   const [trials, setTrials] = useState<DrillTrial[]>([]);
   const [complete, setComplete] = useState(false);
   const [staircase, setStaircase] = useState<StaircaseState>(() =>
-    createStaircase(config ? getInitialValue(config) : 1)
+    createConfiguredStaircase(config)
   );
   const startTimeRef = useRef(Date.now());
 
@@ -25,9 +25,18 @@ export function useDrillState(config: DrillConfiguration | null) {
     if (!config) return;
     setTrials([]);
     setComplete(false);
-    setStaircase(createStaircase(getInitialValue(config)));
+    setStaircase(createConfiguredStaircase(config));
     startTimeRef.current = Date.now();
-  }, [config?.id]);
+  }, [
+    config?.id,
+    config?.variableParams.intervalValue,
+    config?.variableParams.ratioValue,
+    config?.variableParams.angleValue,
+    config?.variableParams.offset,
+    config?.variableParams.range,
+    config?.variableParams.lowerBound,
+    config?.variableParams.upperBound,
+  ]);
 
   const recordTrial = useCallback(
     async (
@@ -53,7 +62,18 @@ export function useDrillState(config: DrillConfiguration | null) {
         return next;
       });
 
-      setStaircase((prev) => updateStaircase(prev, correct));
+      setStaircase((prev) => {
+        const next = updateStaircase(prev, correct);
+        const bounds = getStaircaseBounds(config);
+        if (!bounds) return next;
+        return {
+          ...next,
+          currentValue: Math.min(
+            Math.max(next.currentValue, bounds.minDelta),
+            bounds.maxDelta
+          ),
+        };
+      });
 
       const result: TrialResult = {
         variableId: config.variableId,
@@ -90,7 +110,7 @@ export function useDrillState(config: DrillConfiguration | null) {
   const restart = useCallback(() => {
     setTrials([]);
     setComplete(false);
-    setStaircase(createStaircase(config ? getInitialValue(config) : 1));
+    setStaircase(createConfiguredStaircase(config));
     startTimeRef.current = Date.now();
   }, [config]);
 
@@ -114,6 +134,32 @@ export function useDrillState(config: DrillConfiguration | null) {
     }),
     [trials, staircase, complete, accuracy, recordTrial, restart, endSession]
   );
+}
+
+function createConfiguredStaircase(
+  config: DrillConfiguration | null
+): StaircaseState {
+  if (!config) return createStaircase(1);
+
+  const bounds = getStaircaseBounds(config);
+  const initial = getInitialValue(config);
+  const min = bounds?.minDelta ?? initial;
+  const max = bounds?.maxDelta ?? initial;
+  const clamped = Math.min(Math.max(initial, min), max);
+  return createStaircase(clamped);
+}
+
+function getStaircaseBounds(
+  config: DrillConfiguration
+): { minDelta: number; maxDelta: number } | undefined {
+  const lower = Number(config.variableParams.lowerBound);
+  const upper = Number(config.variableParams.upperBound);
+  if (!Number.isFinite(lower) || !Number.isFinite(upper)) return undefined;
+  if (lower <= 0 || upper <= 0) return undefined;
+  return {
+    minDelta: Math.min(lower, upper),
+    maxDelta: Math.max(lower, upper),
+  };
 }
 
 function getInitialValue(config: DrillConfiguration): number {

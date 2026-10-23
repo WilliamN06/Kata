@@ -14,6 +14,7 @@ interface AngleChipProps {
   lineContrast?: 'low' | 'moderate' | 'high';
   lineStyle?: 'solid' | 'dashed' | 'dotted';
   backgroundValue?: number;
+  transparent?: boolean;
 }
 
 export function AngleChip({
@@ -30,6 +31,7 @@ export function AngleChip({
   lineContrast = 'high',
   lineStyle = 'solid',
   backgroundValue = 0,
+  transparent = false,
 }: AngleChipProps) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -47,17 +49,18 @@ export function AngleChip({
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
 
-    ctx.fillStyle = `rgb(${backgroundValue}, ${backgroundValue}, ${backgroundValue})`;
-    ctx.fillRect(0, 0, width, height);
+    if (transparent) {
+      ctx.clearRect(0, 0, width, height);
+    } else {
+      ctx.fillStyle = `rgb(${backgroundValue}, ${backgroundValue}, ${backgroundValue})`;
+      ctx.fillRect(0, 0, width, height);
+    }
 
     const cx = width / 2;
     const cy = height / 2;
 
-    const contrastFactor =
-      lineContrast === 'low' ? 0.4 : lineContrast === 'moderate' ? 0.7 : 1;
-    const lineValue = Math.round(
-      backgroundValue > 128 ? 0 : 255 * contrastFactor
-    );
+    const contrastFactor = lineContrast === 'low' ? 0.4 : lineContrast === 'moderate' ? 0.7 : 1;
+    const lineValue = Math.round(backgroundValue > 128 ? 0 : 255 * contrastFactor);
     ctx.strokeStyle = `rgb(${lineValue}, ${lineValue}, ${lineValue})`;
 
     const dashPattern =
@@ -75,10 +78,7 @@ export function AngleChip({
     let refRad = Math.PI / 2;
     if (referenceType === 'horizontal') {
       refRad = 0;
-    } else if (
-      referenceType === 'another-line' ||
-      referenceType === 'custom'
-    ) {
+    } else if (referenceType === 'another-line' || referenceType === 'custom') {
       refRad = (referenceAngle * Math.PI) / 180;
     }
 
@@ -87,7 +87,7 @@ export function AngleChip({
       const refDy = -Math.sin(refRad) * halfLength;
 
       ctx.lineWidth = lineThickness;
-      ctx.globalAlpha = 0.4;
+      ctx.globalAlpha = 0.6;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(cx + refDx, cy + refDy);
@@ -158,7 +158,13 @@ export function AngleChip({
     lineContrast,
     lineStyle,
     backgroundValue,
+    transparent,
   ]);
 
-  return <canvas ref={ref} style={{ display: 'block', width, height }} />;
+  return (
+    <canvas
+      ref={ref}
+      style={{ display: 'block', width, height, maxWidth: '100%', maxHeight: '100%' }}
+    />
+  );
 }

@@ -1,10 +1,10 @@
-﻿import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
+  formRatio,
   readProportionParams,
-  resolveExtentRatio,
 } from './params';
 
 export function T6Ordering({
@@ -20,12 +20,29 @@ export function T6Ordering({
   const formProps = formPropsFromParams(p);
 
   const stimuli = useMemo(() => {
-    const ratios = [1.4, 2.1, 3.2, 5.5].sort(() => Math.random() - 0.5);
+    const span = Math.max(0.1, p.upperBound - p.lowerBound);
+    const ratios = [0.12, 0.36, 0.62, 0.9]
+      .map((fraction) =>
+        Number((p.lowerBound + span * fraction).toFixed(2))
+      )
+      .sort(() => Math.random() - 0.5);
+    const direction =
+      p.ratioDirection === 'both'
+        ? Math.random() < 0.5
+          ? 'a-to-b'
+          : 'b-to-a'
+        : p.ratioDirection;
+    const oriented = { ...p, ratioDirection: direction };
     return ratios.map((ratio) => ({
       ratio,
-      extentRatio: resolveExtentRatio(ratio, p.ratioDirection),
+      extentRatio: formRatio(ratio, oriented),
     }));
-  }, [p.ratioDirection]);
+  }, [
+    p.markType,
+    p.ratioDirection,
+    p.lowerBound,
+    p.upperBound,
+  ]);
 
   const handle = () => {
     if (answered) return;
@@ -45,11 +62,11 @@ export function T6Ordering({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[70vh] bg-black p-4">
-      <p className="text-base mb-3 text-center">
+    <div className="flex h-full min-h-[70vh] flex-col p-4">
+      <p className="mb-3 text-center text-base">
         Tap the pairs from smallest ratio to largest.
       </p>
-      <div className="flex-1 grid grid-cols-2 gap-2">
+      <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2">
         {stimuli.map((stimulus) => {
           const position = order.indexOf(stimulus.ratio);
           return (
@@ -57,15 +74,14 @@ export function T6Ordering({
               key={stimulus.ratio}
               onClick={() => setOrder([...order, stimulus.ratio])}
               disabled={position >= 0 || answered}
-              className="relative min-h-36 overflow-hidden rounded-xl border border-neutral-800 disabled:opacity-70"
+              className="relative min-h-0 overflow-hidden rounded-xl border border-neutral-800 bg-transparent disabled:opacity-70"
             >
               <ExtentForm
                 {...formProps}
-                baseLength={55}
                 ratio={stimulus.extentRatio}
               />
               {position >= 0 && (
-                <span className="absolute top-2 left-2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                <span className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
                   {position + 1}
                 </span>
               )}
@@ -77,7 +93,7 @@ export function T6Ordering({
         <button
           onClick={handle}
           disabled={order.length !== stimuli.length || answered}
-          className="px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 rounded-lg font-semibold"
+          className="rounded-lg bg-blue-600 px-8 py-3 font-semibold hover:bg-blue-500 disabled:bg-neutral-800"
         >
           SUBMIT ORDER
         </button>

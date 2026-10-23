@@ -27,7 +27,7 @@ export function readAngleParams(
     referenceType:
       (variableParams.referenceType as AngleReferenceType) || 'vertical',
     referenceAngle: Number(variableParams.referenceAngle) || 90,
-    lineLength: Number(variableParams.lineLength) || 55,
+    lineLength: Number(variableParams.lineLength) || 70,
     tolerance: Number(variableParams.tolerance) || 8,
     comparisonOffset: Number(variableParams.comparisonOffset) || 8,
     lineThickness: Number(stimulusParams.lineThickness) || 3,

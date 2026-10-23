@@ -31,6 +31,24 @@ export const PROPORTION_VARIABLES: Variable[] = [
           'Target / reference. 2 = target is twice as long as reference. Any positive number. 1.618, √2, anything.',
       },
       {
+        id: 'lowerBound',
+        label: 'Lower Ratio Bound',
+        kind: 'number',
+        defaultValue: 1,
+        range: { min: 0.01, max: 100, step: 0.01, unit: ':1', extendable: true },
+        helpText:
+          'Smallest ratio the staircase and generated examples may use.',
+      },
+      {
+        id: 'upperBound',
+        label: 'Upper Ratio Bound',
+        kind: 'number',
+        defaultValue: 10,
+        range: { min: 0.01, max: 1000, step: 0.01, unit: ':1', extendable: true },
+        helpText:
+          'Largest ratio the staircase and generated examples may use.',
+      },
+      {
         id: 'ratioDirection',
         label: 'Direction',
         kind: 'select',
@@ -48,6 +66,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
         label: 'Mark Type',
         kind: 'select',
         options: [
+          { value: 'two-dots', label: 'Two dots (unseen rectangle corner)' },
           { value: 'three-dots', label: 'Three dots (A | B share middle)' },
           { value: 'line', label: 'Lines only (no dots)' },
           { value: 'line-with-dots', label: 'Lines with end dots' },
@@ -55,7 +74,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
         ],
         defaultValue: 'line-with-dots',
         helpText:
-          'How the two extents are drawn. Dots = endpoints only. Lines = the extent itself. Line-with-dots = both.',
+          'How the extents are drawn. Two dots shows opposite corners of an unseen rectangle: judge horizontal against vertical.',
       },
 
       // ---------- RELATIONSHIP (how the two extents sit relative to each other) ----------
@@ -101,7 +120,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
         id: 'baseLength',
         label: 'Reference Length',
         kind: 'number',
-        defaultValue: 35,
+        defaultValue: 50,
         range: { min: 10, max: 90, step: 1, unit: '%', extendable: false },
         helpText:
           'Reference extent as a percentage of the available window. The target is reference x ratio; both are fitted to the stage.',
@@ -170,20 +189,6 @@ export const PROPORTION_VARIABLES: Variable[] = [
         ],
         defaultValue: 'high',
       },
-      {
-        id: 'backgroundValue',
-        label: 'Background',
-        kind: 'select',
-        options: [
-          { value: 'light', label: 'Light' },
-          { value: 'mid', label: 'Mid' },
-          { value: 'dark', label: 'Dark' },
-          { value: 'grid', label: 'Grid' },
-          { value: 'transparent', label: 'Transparent (match page)' },
-        ],
-        defaultValue: 'mid',
-      },
-
       // ---------- POSITION ----------
       {
         id: 'position',
@@ -267,7 +272,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
         id: 'lineLength',
         label: 'Line Length',
         kind: 'number',
-        defaultValue: 55,
+        defaultValue: 70,
         range: { min: 10, max: 90, step: 1, unit: '%', extendable: false },
         helpText:
           'Line length as a percentage of the available window. The whole angle auto-fits the stage.',
@@ -329,17 +334,6 @@ export const PROPORTION_VARIABLES: Variable[] = [
           { value: 'implied', label: 'Implied' },
         ],
         defaultValue: 'clear',
-      },
-      {
-        id: 'backgroundValue',
-        label: 'Background',
-        kind: 'select',
-        options: [
-          { value: 'light', label: 'Light' },
-          { value: 'mid', label: 'Mid' },
-          { value: 'dark', label: 'Dark' },
-        ],
-        defaultValue: 'mid',
       },
     ],
     visualisation: 'none',

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 
 export type MarkType =
+  | 'two-dots'
   | 'three-dots'
   | 'line'
   | 'line-with-dots'
@@ -49,13 +50,7 @@ const CONTRAST_COLOURS = {
 };
 
 // Minimal/clear backgrounds — no muddy grey fill.
-const BG_COLOURS: Record<BackgroundValue, string> = {
-  light: '#000000',
-  mid: '#000000',
-  dark: '#000000',
-  grid: '#000000',
-  transparent: '#000000',
-};
+
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
@@ -88,8 +83,8 @@ export function ExtentForm(props: ExtentFormProps) {
       if (containerRef.current) {
         const r = containerRef.current.getBoundingClientRect();
         setDims({
-          width: Math.max(300, r.width),
-          height: Math.max(200, r.height),
+          width: Math.max(1, r.width),
+          height: Math.max(1, r.height),
         });
       }
     };
@@ -104,7 +99,6 @@ export function ExtentForm(props: ExtentFormProps) {
   }, []);
 
   const colours = CONTRAST_COLOURS[contrast];
-  const bg = BG_COLOURS[backgroundValue];
 
   const resolvedRelationship: Exclude<Relationship, 'random'> = useMemo(() => {
     if (relationship !== 'random') return relationship;
@@ -124,7 +118,7 @@ export function ExtentForm(props: ExtentFormProps) {
   // inside the window with padding. This is the fix for the angle
   // going outside the space.
   const layout = useMemo(() => {
-    const padding = Math.min(dims.width, dims.height) * 0.1;
+    const padding = Math.min(dims.width, dims.height) * 0.06;
     const usableW = dims.width - padding * 2;
     const usableH = dims.height - padding * 2;
 
@@ -267,7 +261,60 @@ export function ExtentForm(props: ExtentFormProps) {
     }
   }, [dims, baseLength, scale, ratio, angle, jointAngle, position, resolvedRelationship]);
 
+  const twoDots = useMemo(() => {
+    if (markType !== 'two-dots') return null;
+
+    const padding = Math.min(dims.width, dims.height) * 0.06;
+    const usableW = dims.width - padding * 2;
+    const usableH = dims.height - padding * 2;
+    const shortSide = Math.min(usableW, usableH);
+    const referenceFraction = Math.min(0.9, Math.max(0.05, baseLength / 100));
+    const rawH = shortSide * referenceFraction * scale;
+    const rawV = rawH / Math.max(0.01, ratio);
+    const fit = Math.min(
+      1,
+      usableW / Math.max(rawH, 1),
+      usableH / Math.max(rawV, 1)
+    );
+    const horizontal = rawH * fit;
+    const vertical = rawV * fit;
+
+    let centreX = dims.width / 2;
+    let centreY = dims.height / 2;
+    const offX = dims.width * 0.22;
+    const offY = dims.height * 0.22;
+    switch (position) {
+      case 'top-left':
+        centreX -= offX;
+        centreY -= offY;
+        break;
+      case 'top-right':
+        centreX += offX;
+        centreY -= offY;
+        break;
+      case 'bottom-left':
+        centreX -= offX;
+        centreY += offY;
+        break;
+      case 'bottom-right':
+        centreX += offX;
+        centreY += offY;
+        break;
+      case 'centre':
+      default:
+        break;
+    }
+
+    return {
+      x1: centreX - horizontal / 2,
+      y1: centreY + vertical / 2,
+      x2: centreX + horizontal / 2,
+      y2: centreY - vertical / 2,
+    };
+  }, [markType, dims, baseLength, scale, ratio, position]);
+
   const showDots =
+    markType === 'two-dots' ||
     markType === 'three-dots' ||
     markType === 'line-with-dots' ||
     markType === 'line-with-three-dots';
@@ -281,7 +328,7 @@ export function ExtentForm(props: ExtentFormProps) {
     : lineStyle === 'dotted' ? lineThickness + ',' + lineThickness * 2
     : undefined;
 
-  const referenceUnit = showReferenceUnit
+  const referenceUnit = showReferenceUnit && !twoDots
     ? {
         x: 40,
         y: dims.height - 40,
@@ -295,15 +342,18 @@ export function ExtentForm(props: ExtentFormProps) {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative overflow-hidden"
-      style={{ background: bg }}
+      className="absolute inset-0 overflow-hidden bg-transparent"
     >
       <svg
         width={dims.width}
         height={dims.height}
         style={{ position: 'absolute', inset: 0, display: 'block' }}
         role="img"
-        aria-label="Two extents to compare"
+        aria-label={
+          twoDots
+            ? 'Two dots at opposite corners of an unseen rectangle'
+            : 'Two extents to compare'
+        }
       >
         {/* Minimal grid */}
         {backgroundValue === 'grid' && (
@@ -361,7 +411,24 @@ export function ExtentForm(props: ExtentFormProps) {
         )}
 
         {/* 3 dots only: A1, shared (if any), B2 — but also A2/B1 which equal shared */}
-        {showDots && (
+        {twoDots && (
+          <>
+            <circle
+              cx={twoDots.x1}
+              cy={twoDots.y1}
+              r={dotSize / 2}
+              fill={colours.fg}
+            />
+            <circle
+              cx={twoDots.x2}
+              cy={twoDots.y2}
+              r={dotSize / 2}
+              fill={colours.fg}
+            />
+          </>
+        )}
+
+        {!twoDots && showDots && (
           <>
             {/* Reference extent endpoints */}
             <circle cx={layout.a.x1} cy={layout.a.y1} r={dotSize / 2} fill={colours.fg} />
@@ -373,7 +440,7 @@ export function ExtentForm(props: ExtentFormProps) {
         )}
 
         {/* Labels for clarity */}
-        {showLabels && (
+        {showLabels && !twoDots && (
           <>
             <text x={layout.a.x1 + 12} y={layout.a.y1 - 8} fill={colours.fg} fontSize={12} fontFamily="monospace" opacity={0.6}>A1</text>
             <text x={layout.a.x2 + 12} y={layout.a.y2 - 8} fill={colours.fg} fontSize={12} fontFamily="monospace" opacity={0.6}>A2</text>

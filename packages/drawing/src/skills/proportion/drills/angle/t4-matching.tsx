@@ -44,7 +44,7 @@ export function AngleT4Matching({
   };
 
   return (
-    <div className="flex h-full min-h-[70vh] flex-col bg-black">
+    <div className="flex h-full min-h-[70vh] flex-col">
       <div className="grid min-h-0 flex-1 grid-rows-2">
         <AngleStage
           angle={target}
@@ -55,19 +55,19 @@ export function AngleT4Matching({
           lineContrast={params.lineContrast}
           lineStyle={params.lineStyle}
         />
-        <div className="grid grid-cols-4 gap-px border-t border-neutral-800 bg-neutral-800">
+        <div className="grid grid-cols-4 gap-2 border-t border-neutral-800">
           {options.map((option) => (
             <button
               key={option}
               onClick={() => handle(option)}
               disabled={answered}
-              className="relative min-h-0 overflow-hidden bg-black hover:ring-2 hover:ring-blue-500 disabled:opacity-70"
+              className="relative min-h-0 overflow-hidden bg-transparent hover:ring-2 hover:ring-blue-500 disabled:opacity-70"
             >
               <AngleStage
                 angle={option}
                 referenceType="none"
                 showReference={false}
-                lineLength={Math.min(72, params.lineLength + 12)}
+                lineLength={params.lineLength}
                 lineThickness={params.lineThickness}
                 lineContrast={params.lineContrast}
                 lineStyle={params.lineStyle}

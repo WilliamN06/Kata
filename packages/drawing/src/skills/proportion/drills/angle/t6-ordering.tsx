@@ -35,7 +35,7 @@ export function AngleT6Ordering({
   };
 
   return (
-    <div className="flex h-full min-h-[70vh] flex-col bg-black p-4">
+    <div className="flex h-full min-h-[70vh] flex-col p-4">
       <p className="mb-3 text-center text-base">
         Tap the angles from smallest to largest.
       </p>
@@ -53,7 +53,7 @@ export function AngleT6Ordering({
                 angle={angle}
                 referenceType="none"
                 showReference={false}
-                lineLength={Math.min(72, params.lineLength + 10)}
+                lineLength={params.lineLength}
                 lineThickness={params.lineThickness}
                 lineContrast={params.lineContrast}
                 lineStyle={params.lineStyle}

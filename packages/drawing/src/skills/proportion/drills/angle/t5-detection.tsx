@@ -52,7 +52,7 @@ export function AngleT5Detection({
         : 'the reference';
 
   return (
-    <div className="flex h-full min-h-[70vh] flex-col bg-black">
+    <div className="flex h-full min-h-[70vh] flex-col">
       <div className="min-h-0 flex-1">
         <AngleStage
           angle={trial.angle}

@@ -3,9 +3,9 @@ import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
+  formRatio,
+  ratioForParams,
   readProportionParams,
-  resolveExtentRatio,
-  resolveRatio,
 } from './params';
 
 export function T1Categorisation({
@@ -19,10 +19,10 @@ export function T1Categorisation({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const ratio = resolveRatio(currentValue);
+  const ratio = ratioForParams(currentValue, p);
   const extentRatio = useMemo(
-    () => resolveExtentRatio(ratio, p.ratioDirection),
-    [ratio, p.ratioDirection]
+    () => formRatio(ratio, p),
+    [ratio, p.markType, p.ratioDirection]
   );
 
   const categories = [
@@ -56,12 +56,14 @@ export function T1Categorisation({
 
   return (
     <div className="flex flex-col h-full min-h-[70vh]">
-      <div className="flex-1 relative">
+      <div className="relative min-h-0 flex-1">
         <ExtentForm {...formProps} ratio={extentRatio} />
       </div>
       <div className="p-4 bg-neutral-950 border-t border-neutral-800">
         <p className="text-base mb-3 text-center">
-          What is the longer-to-shorter ratio?
+          {p.markType === 'two-dots'
+            ? 'What is the horizontal-to-vertical ratio at the unseen corner?'
+            : 'What is the longer-to-shorter ratio?'}
         </p>
         <div className="flex flex-wrap gap-2 justify-center">
           {categories.map((c) => (

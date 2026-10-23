@@ -1,12 +1,12 @@
-﻿import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
+  formRatio,
+  ratioForParams,
   ratioOptions,
   readProportionParams,
-  resolveExtentRatio,
-  resolveRatio,
 } from './params';
 
 export function T7Identification({
@@ -20,13 +20,22 @@ export function T7Identification({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const ratio = resolveRatio(currentValue);
+  const ratio = ratioForParams(currentValue, p);
   const extentRatio = useMemo(
-    () => resolveExtentRatio(ratio, p.ratioDirection),
-    [ratio, p.ratioDirection]
+    () => formRatio(ratio, p),
+    [ratio, p.markType, p.ratioDirection]
   );
 
-  const options = useMemo(() => ratioOptions(ratio), [ratio]);
+  const options = useMemo(
+    () =>
+      ratioOptions(
+        ratio,
+        4,
+        p.lowerBound,
+        p.upperBound
+      ),
+    [ratio, p.lowerBound, p.upperBound]
+  );
 
   const handle = (choice: number) => {
     if (answered) return;
@@ -45,21 +54,23 @@ export function T7Identification({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[70vh] bg-black">
-      <div className="flex-1 min-h-0 relative">
+    <div className="flex h-full min-h-[70vh] flex-col">
+      <div className="relative min-h-0 flex-1">
         <ExtentForm {...formProps} ratio={extentRatio} />
       </div>
-      <div className="p-4 bg-neutral-950 border-t border-neutral-800">
-        <p className="text-base mb-3 text-center">
-          What is the longer-to-shorter ratio?
+      <div className="border-t border-neutral-800 bg-neutral-950 p-4">
+        <p className="mb-3 text-center text-base">
+          {p.markType === 'two-dots'
+            ? 'What is the horizontal-to-vertical ratio at the unseen corner?'
+            : 'What is the longer-to-shorter ratio?'}
         </p>
-        <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
+        <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
           {options.map((option) => (
             <button
               key={option}
               onClick={() => handle(option)}
               disabled={answered}
-              className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 border border-neutral-700 rounded-lg font-semibold font-mono text-sm"
+              className="rounded-lg border border-neutral-700 bg-neutral-800 px-5 py-2.5 font-mono text-sm font-semibold hover:bg-neutral-700 disabled:opacity-50"
             >
               {option.toFixed(2)} : 1
             </button>

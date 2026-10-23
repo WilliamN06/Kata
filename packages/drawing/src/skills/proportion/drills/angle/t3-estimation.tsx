@@ -1,12 +1,7 @@
 import { useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { AngleStage } from '../../stimuli/AngleStage';
-import {
-  angleDifference,
-  readAngleParams,
-  referenceDegrees,
-  resolveAngle,
-} from './params';
+import { angleDifference, readAngleParams, referenceDegrees, resolveAngle } from './params';
 
 export function AngleT3Estimation({
   currentValue,
@@ -16,24 +11,28 @@ export function AngleT3Estimation({
 }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
-  const [guess, setGuess] = useState(90);
+  const [guess, setGuess] = useState('90');
 
   const params = readAngleParams(variableParams, stimulusParams);
   const angle = resolveAngle(currentValue);
-  const reference = referenceDegrees(
-    params.referenceType,
-    params.referenceAngle
-  );
+  const reference = referenceDegrees(params.referenceType, params.referenceAngle);
+  const numericGuess = guess.trim() === '' ? null : Number(guess);
+  const validGuess =
+    numericGuess !== null &&
+    Number.isFinite(numericGuess) &&
+    numericGuess >= 0 &&
+    numericGuess <= 360;
+  const showInvalid = guess.trim() !== '' && !validGuess;
 
   const handle = () => {
-    if (answered) return;
+    if (answered || numericGuess === null || !validGuess) return;
     setAnswered(true);
     setTimeout(
       () =>
         onAnswer({
-          correct: angleDifference(guess, angle) <= params.tolerance,
+          correct: angleDifference(numericGuess, angle) <= params.tolerance,
           responseTimeMs: Date.now() - startTime.current,
-          userResponse: guess,
+          userResponse: numericGuess,
           correctResponse: angle,
         }),
       650
@@ -41,8 +40,8 @@ export function AngleT3Estimation({
   };
 
   return (
-    <div className="flex h-full min-h-[70vh] flex-col bg-black">
-      <div className="min-h-0 flex-1">
+    <div className="grid h-full min-h-[70vh] grid-rows-[minmax(220px,1fr)_auto]">
+      <div className="relative min-h-0">
         <AngleStage
           angle={angle}
           referenceType={params.referenceType}
@@ -55,27 +54,32 @@ export function AngleT3Estimation({
           lineStyle={params.lineStyle}
         />
       </div>
-      <div className="border-t border-neutral-800 bg-neutral-950 p-4">
-        <p className="mb-3 text-center text-base">
-          Estimate the angle in degrees.
-        </p>
+      <div className="shrink-0 border-t border-neutral-800 bg-neutral-950 p-4">
+        <p className="mb-3 text-center text-base">Estimate the angle in degrees.</p>
         <div className="flex flex-col items-center gap-3">
-          <input
-            type="range"
-            min={0}
-            max={360}
-            step={1}
-            value={guess}
-            onChange={(event) => setGuess(Number(event.target.value))}
-            className="w-80"
-          />
-          <p className="font-mono text-sm text-neutral-300">{guess}°</p>
-          <p className="font-mono text-xs text-neutral-600">
-            Accepted error: ±{params.tolerance}°
-          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={360}
+              step={1}
+              autoComplete="off"
+              aria-label="Angle estimate in degrees"
+              placeholder="45"
+              value={guess}
+              onChange={(event) => setGuess(event.target.value)}
+              className="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-center font-mono text-lg"
+            />
+            <span className="font-mono text-xl text-neutral-500">°</span>
+          </div>
+          {showInvalid && (
+            <p className="font-mono text-xs text-red-400">Enter an angle from 0 to 360.</p>
+          )}
+          <p className="font-mono text-xs text-neutral-600">Accepted error: ±{params.tolerance}°</p>
           <button
             onClick={handle}
-            disabled={answered}
+            disabled={answered || !validGuess}
             className="rounded-lg bg-blue-600 px-8 py-3 font-semibold hover:bg-blue-500 disabled:bg-neutral-800"
           >
             CONFIRM

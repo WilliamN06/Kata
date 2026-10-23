@@ -3,9 +3,9 @@ import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
+  formRatio,
+  ratioForParams,
   readProportionParams,
-  resolveExtentRatio,
-  resolveRatio,
 } from './params';
 
 export function T5Detection({
@@ -19,12 +19,18 @@ export function T5Detection({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const difference = resolveRatio(currentValue, 1.2);
-  const equal = useMemo(() => Math.random() > 0.5, []);
-  const ratio = equal ? 1 : Math.max(1.1, difference);
+  const difference = ratioForParams(currentValue, p, 1.2);
+  const canBeEqual = p.lowerBound <= 1;
+  const equal = useMemo(
+    () => canBeEqual && Math.random() > 0.5,
+    [canBeEqual]
+  );
+  const ratio = equal
+    ? 1
+    : Math.max(Math.max(1.1, p.lowerBound), difference);
   const extentRatio = useMemo(
-    () => resolveExtentRatio(ratio, p.ratioDirection),
-    [ratio, p.ratioDirection]
+    () => formRatio(ratio, p),
+    [ratio, p.markType, p.ratioDirection]
   );
 
   const handle = (saidEqual: boolean) => {
@@ -43,13 +49,15 @@ export function T5Detection({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[70vh] bg-black">
+    <div className="flex h-full min-h-[70vh] flex-col">
       <div className="flex-1 min-h-0 relative">
         <ExtentForm {...formProps} ratio={extentRatio} />
       </div>
       <div className="p-4 bg-neutral-950 border-t border-neutral-800">
-        <p className="text-base mb-3 text-center">
-          Are the two extents equal in length?
+        <p className="mb-3 text-center text-base">
+          {p.markType === 'two-dots'
+            ? 'Are the horizontal and vertical extents equal?'
+            : 'Are the two extents equal in length?'}
         </p>
         <div className="flex gap-3 justify-center">
           <button

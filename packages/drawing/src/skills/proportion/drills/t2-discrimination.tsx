@@ -3,9 +3,9 @@ import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
+  formRatio,
+  ratioForParams,
   readProportionParams,
-  resolveExtentRatio,
-  resolveRatio,
 } from './params';
 
 export function T2Discrimination({
@@ -19,22 +19,33 @@ export function T2Discrimination({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const ratio = resolveRatio(currentValue);
+  const ratio = ratioForParams(currentValue, p);
 
   const pair = useMemo(() => {
-    const isDiff = Math.random() > 0.5;
+    const canDiffer = p.upperBound > p.lowerBound;
+    const isDiff = canDiffer && Math.random() > 0.5;
     const delta = Math.max(0.35, ratio * 0.25);
+    const upper = p.upperBound;
+    const lower = p.lowerBound;
+    const higher = Math.min(upper, ratio + delta);
     const ratioB = isDiff
-      ? Math.min(12, ratio + delta) === ratio
-        ? Math.max(1.05, ratio - delta)
-        : Math.min(12, ratio + delta)
+      ? higher === ratio
+        ? Math.max(lower, ratio - delta)
+        : higher
       : ratio;
+    const direction =
+      p.ratioDirection === 'both'
+        ? Math.random() < 0.5
+          ? 'a-to-b'
+          : 'b-to-a'
+        : p.ratioDirection;
+    const oriented = { ...p, ratioDirection: direction };
     return {
       isDiff,
-      a: resolveExtentRatio(ratio, p.ratioDirection),
-      b: resolveExtentRatio(ratioB, p.ratioDirection),
+      a: formRatio(ratio, oriented),
+      b: formRatio(ratioB, oriented),
     };
-  }, [ratio, p.ratioDirection]);
+  }, [ratio, p.markType, p.ratioDirection, p.lowerBound, p.upperBound]);
 
   const handle = (saidDiff: boolean) => {
     if (answered) return;
@@ -52,10 +63,14 @@ export function T2Discrimination({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[70vh] bg-black">
-      <div className="flex-1 min-h-0 grid grid-cols-2 gap-px bg-neutral-800">
-        <ExtentForm {...formProps} ratio={pair.a} />
-        <ExtentForm {...formProps} ratio={pair.b} />
+    <div className="flex h-full min-h-[70vh] flex-col">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+        <div className="relative min-h-0">
+          <ExtentForm {...formProps} ratio={pair.a} />
+        </div>
+        <div className="relative min-h-0">
+          <ExtentForm {...formProps} ratio={pair.b} />
+        </div>
       </div>
       <div className="p-4 bg-neutral-950 border-t border-neutral-800">
         <p className="text-base mb-3 text-center">

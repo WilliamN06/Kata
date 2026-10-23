@@ -44,8 +44,8 @@ export function AngleT2Discrimination({
   };
 
   return (
-    <div className="flex h-full min-h-[70vh] flex-col bg-black">
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-px bg-neutral-800">
+    <div className="flex h-full min-h-[70vh] flex-col">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
         <AngleStage
           angle={trial.base}
           referenceType="none"

@@ -44,7 +44,7 @@ export function AngleT7Identification({
   };
 
   return (
-    <div className="flex h-full min-h-[70vh] flex-col bg-black p-4">
+    <div className="flex h-full min-h-[70vh] flex-col p-4">
       <p className="mb-3 text-center text-base">
         Which angle is closest to{' '}
         <span className="font-mono font-semibold text-neutral-100">

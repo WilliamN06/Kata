@@ -3,10 +3,10 @@ import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
+  formRatio,
+  ratioForParams,
   ratioOptions,
   readProportionParams,
-  resolveExtentRatio,
-  resolveRatio,
 } from './params';
 
 export function T4Matching({
@@ -20,13 +20,22 @@ export function T4Matching({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const targetRatio = resolveRatio(currentValue);
+  const targetRatio = ratioForParams(currentValue, p);
   const extentRatio = useMemo(
-    () => resolveExtentRatio(targetRatio, p.ratioDirection),
-    [targetRatio, p.ratioDirection]
+    () => formRatio(targetRatio, p),
+    [targetRatio, p.markType, p.ratioDirection]
   );
 
-  const options = useMemo(() => ratioOptions(targetRatio), [targetRatio]);
+  const options = useMemo(
+    () =>
+      ratioOptions(
+        targetRatio,
+        4,
+        p.lowerBound,
+        p.upperBound
+      ),
+    [targetRatio, p.lowerBound, p.upperBound]
+  );
 
   const handle = (choice: number) => {
     if (answered) return;
@@ -45,13 +54,15 @@ export function T4Matching({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[70vh] bg-black">
+    <div className="flex h-full min-h-[70vh] flex-col">
       <div className="flex-1 min-h-0 relative">
         <ExtentForm {...formProps} ratio={extentRatio} />
       </div>
       <div className="p-4 bg-neutral-950 border-t border-neutral-800">
-        <p className="text-base mb-3 text-center">
-          Which ratio matches the target?
+        <p className="mb-3 text-center text-base">
+          {p.markType === 'two-dots'
+            ? 'Which horizontal-to-vertical ratio matches the unseen corner?'
+            : 'Which ratio matches the target?'}
         </p>
         <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
           {options.map((option) => (
