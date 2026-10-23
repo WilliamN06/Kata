@@ -27,9 +27,15 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-w-3xl w-full max-h-[92vh] overflow-y-auto">
-        <div className="sticky top-0 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex justify-between items-center z-10">
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close settings"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
+      <div className="absolute inset-x-0 bottom-0 top-[48vh] md:inset-y-0 md:left-auto md:right-0 md:top-0 md:w-[440px] md:max-w-[92vw] bg-neutral-900 border-t md:border-t-0 md:border-l border-neutral-800 rounded-t-2xl md:rounded-none shadow-2xl flex flex-col">
+        <div className="flex-shrink-0 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold">Drill Settings</h2>
             <p className="text-xs text-neutral-500 mt-1">
@@ -44,46 +50,46 @@ export function SettingsPanel({
           </button>
         </div>
 
-        <Section
-          title="Task Conditions"
-          subtitle="How the drill runs. Same for all variables."
-        >
-          <TaskConditionsControls
-            values={config.taskConditions}
-            onChange={onUpdateTaskConditions}
-          />
-        </Section>
-
-        <Section
-          title="Variable Parameters"
-          subtitle="What the variable itself takes. Specific to this drill."
-        >
-          {variable.variableDimensions.map((dim) => (
-            <DimensionControl
-              key={dim.id}
-              dimension={dim}
-              value={config.variableParams[dim.id] ?? dim.defaultValue}
-              onChange={(v) => onUpdateVariableParams({ [dim.id]: v })}
-              allValues={config.variableParams}
+        <div className="flex-1 overflow-y-auto">
+          <Section title="Task Conditions" subtitle="How the drill runs. Same for all variables.">
+            <TaskConditionsControls
+              values={config.taskConditions}
+              onChange={onUpdateTaskConditions}
+              showVisualisation={config.domain === 'music'}
             />
-          ))}
-        </Section>
+          </Section>
 
-        <Section
-          title="Stimulus Parameters"
-          subtitle="Properties of the stimulus that make the variable harder or easier to perceive."
-        >
-          {variable.stimulusParameters.map((p) => (
-            <StimulusControl
-              key={p.id}
-              parameter={p}
-              value={config.stimulusParams[p.id] ?? p.defaultValue}
-              onChange={(v) => onUpdateStimulusParams({ [p.id]: v })}
-            />
-          ))}
-        </Section>
+          <Section
+            title="Variable Parameters"
+            subtitle="What the variable itself takes. Specific to this drill."
+          >
+            {variable.variableDimensions.map((dim) => (
+              <DimensionControl
+                key={dim.id}
+                dimension={dim}
+                value={config.variableParams[dim.id] ?? dim.defaultValue}
+                onChange={(v) => onUpdateVariableParams({ [dim.id]: v })}
+                allValues={config.variableParams}
+              />
+            ))}
+          </Section>
 
-        <div className="sticky bottom-0 bg-neutral-900 border-t border-neutral-800 px-6 py-4 flex justify-between">
+          <Section
+            title="Stimulus Parameters"
+            subtitle="Properties of the stimulus that make the variable harder or easier to perceive."
+          >
+            {variable.stimulusParameters.map((p) => (
+              <StimulusControl
+                key={p.id}
+                parameter={p}
+                value={config.stimulusParams[p.id] ?? p.defaultValue}
+                onChange={(v) => onUpdateStimulusParams({ [p.id]: v })}
+              />
+            ))}
+          </Section>
+        </div>
+
+        <div className="flex-shrink-0 bg-neutral-900 border-t border-neutral-800 px-6 py-4 flex justify-between">
           <button
             onClick={onReset}
             className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-semibold"
@@ -125,9 +131,11 @@ function Section({
 function TaskConditionsControls({
   values,
   onChange,
+  showVisualisation,
 }: {
   values: TaskConditions;
   onChange: (patch: Partial<TaskConditions>) => void;
+  showVisualisation: boolean;
 }) {
   return (
     <>
@@ -153,9 +161,7 @@ function TaskConditionsControls({
           presets={[0.5, 1, 2, 5]}
           value={values.interTrialIntervalSeconds}
           unit="s"
-          onChange={(v) =>
-            onChange({ interTrialIntervalSeconds: typeof v === 'number' ? v : 2 })
-          }
+          onChange={(v) => onChange({ interTrialIntervalSeconds: typeof v === 'number' ? v : 2 })}
         />
       </Row>
       <Row label="Response deadline">
@@ -234,21 +240,21 @@ function TaskConditionsControls({
         </button>
       </Row>
 
-      <Row label="Show audio visualisation">
-        <button
-          onClick={() =>
-            onChange({ showVisualisation: !values.showVisualisation })
-          }
-          className={
-            'px-4 py-2 rounded-lg text-sm font-semibold ' +
-            (values.showVisualisation
-              ? 'bg-blue-600 hover:bg-blue-500'
-              : 'bg-neutral-800 hover:bg-neutral-700')
-          }
-        >
-          {values.showVisualisation ? 'ON' : 'OFF'}
-        </button>
-      </Row>
+      {showVisualisation && (
+        <Row label="Show audio visualisation">
+          <button
+            onClick={() => onChange({ showVisualisation: !values.showVisualisation })}
+            className={
+              'px-4 py-2 rounded-lg text-sm font-semibold ' +
+              (values.showVisualisation
+                ? 'bg-blue-600 hover:bg-blue-500'
+                : 'bg-neutral-800 hover:bg-neutral-700')
+            }
+          >
+            {values.showVisualisation ? 'ON' : 'OFF'}
+          </button>
+        </Row>
+      )}
     </>
   );
 }
@@ -434,9 +440,7 @@ function Row({
     <div className="flex items-center justify-between gap-4">
       <div className="flex-1">
         <div className="text-sm text-neutral-300">{label}</div>
-        {help && (
-          <div className="text-xs text-neutral-600 mt-0.5">{help}</div>
-        )}
+        {help && <div className="text-xs text-neutral-600 mt-0.5">{help}</div>}
       </div>
       <div className="flex-shrink-0">{children}</div>
     </div>
@@ -560,8 +564,7 @@ function SelectOrNumber({
   allowNone?: boolean;
   onChange: (v: any) => void;
 }) {
-  const isCustom =
-    typeof value === 'number' && !presets.includes(value);
+  const isCustom = typeof value === 'number' && !presets.includes(value);
   const [customMode, setCustomMode] = useState(isCustom);
 
   if (customMode) {
@@ -615,4 +618,3 @@ function SelectOrNumber({
     </select>
   );
 }
-

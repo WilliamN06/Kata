@@ -50,18 +50,26 @@ export function T3Estimation({
   };
 
   return (
-    <div className="grid h-full min-h-[70vh] grid-rows-[minmax(220px,1fr)_auto]">
-      <div className="relative min-h-0">
+    <div className="flex h-full flex-col" style={{ minHeight: '70vh' }}>
+      <div className="relative min-h-0 flex-1" style={{ minHeight: 260 }}>
         <ExtentForm {...formProps} ratio={extentRatio} />
       </div>
-      <div className="shrink-0 border-t border-neutral-800 bg-neutral-950 p-4">
-        <p className="mb-3 text-center text-base">
-          {p.markType === 'two-dots'
-            ? 'Type the horizontal-to-vertical ratio at the unseen corner.'
-            : 'Type the longer-to-shorter ratio.'}
-        </p>
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2">
+      <div
+        className="border-t border-neutral-800 bg-neutral-950 px-4 py-3"
+        style={{ flexShrink: 0 }}
+      >
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2">
+          <div className="flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1">
+            <p className="text-center text-base">
+              {p.markType === 'two-dots'
+                ? 'Type the horizontal-to-vertical ratio at the unseen corner.'
+                : 'Type the longer-to-shorter ratio.'}
+            </p>
+            <p className="font-mono text-xs text-neutral-600">
+              Accepted error: ±{(p.tolerance * 100).toFixed(0)}%
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <input
               type="number"
               inputMode="decimal"
@@ -72,7 +80,7 @@ export function T3Estimation({
               placeholder="2"
               value={firstTerm}
               onChange={(event) => setFirstTerm(event.target.value)}
-              className="w-24 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-center font-mono text-lg"
+              className="w-20 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-center font-mono text-lg sm:w-24"
             />
             <span className="font-mono text-xl text-neutral-500">:</span>
             <input
@@ -85,27 +93,21 @@ export function T3Estimation({
               placeholder="1"
               value={secondTerm}
               onChange={(event) => setSecondTerm(event.target.value)}
-              className="w-24 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-center font-mono text-lg"
+              className="w-20 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-center font-mono text-lg sm:w-24"
             />
+            <button
+              onClick={handle}
+              disabled={answered || !validGuess}
+              className="rounded-lg bg-blue-600 px-5 py-2.5 font-semibold hover:bg-blue-500 disabled:bg-neutral-800"
+            >
+              CONFIRM
+            </button>
           </div>
-          <p className="font-mono text-xs text-neutral-500">
-            Enter each side of the ratio separately.
-          </p>
           {showInvalid && (
             <p className="font-mono text-xs text-red-400">
               Both ratio terms must be positive numbers.
             </p>
           )}
-          <p className="font-mono text-xs text-neutral-600">
-            Accepted error: ±{(p.tolerance * 100).toFixed(0)}%
-          </p>
-          <button
-            onClick={handle}
-            disabled={answered || !validGuess}
-            className="mt-2 rounded-lg bg-blue-600 px-8 py-3 font-semibold hover:bg-blue-500 disabled:bg-neutral-800"
-          >
-            CONFIRM
-          </button>
         </div>
       </div>
     </div>

@@ -16,7 +16,9 @@ export function DrillScreen() {
   }>();
   const navigate = useNavigate();
 
-  const subskill = subskillId ? getSubskill((domainId ?? subskillId.split(':')[0]) ?? '', subskillId) : undefined;
+  const subskill = subskillId
+    ? getSubskill(domainId ?? subskillId.split(':')[0] ?? '', subskillId)
+    : undefined;
   const variable = variableId ? getVariable(variableId) : undefined;
 
   const {
@@ -41,15 +43,8 @@ export function DrillScreen() {
     correctResponse: unknown;
   }>(null);
 
-  const {
-    trials,
-    staircase,
-    complete,
-    accuracy,
-    recordTrial,
-    restart,
-    endSession,
-  } = useDrillState(config);
+  const { trials, staircase, complete, accuracy, recordTrial, restart, endSession } =
+    useDrillState(config);
 
   const [trialKey, setTrialKey] = useState(0);
   const [sessionStart, setSessionStart] = useState(() => Date.now());
@@ -68,6 +63,13 @@ export function DrillScreen() {
       if (advanceRef.current) clearTimeout(advanceRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [settingsOpen]);
 
   useEffect(() => {
     setSessionStart(Date.now());
@@ -116,9 +118,13 @@ export function DrillScreen() {
             {subskillId} / {variableId} / {taskType}
           </p>
           <p className="text-xs text-neutral-600 mt-2">
-            loading: {String(loading)} · subskill: {String(!!subskill)} · variable: {String(!!variable)} · config: {String(!!config)}
+            loading: {String(loading)} · subskill: {String(!!subskill)} · variable:{' '}
+            {String(!!variable)} · config: {String(!!config)}
           </p>
-          <button onClick={goBack} className="mt-4 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded text-sm">
+          <button
+            onClick={goBack}
+            className="mt-4 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded text-sm"
+          >
             ← Back
           </button>
         </div>
@@ -128,9 +134,8 @@ export function DrillScreen() {
 
   const safeTaskType = taskType ?? '';
   const drill =
-    subskill.drillsByVariable?.[variableId ?? '']?.[
-      safeTaskType as keyof typeof subskill.drills
-    ] ?? subskill.drills[safeTaskType as keyof typeof subskill.drills];
+    subskill.drillsByVariable?.[variableId ?? '']?.[safeTaskType as keyof typeof subskill.drills] ??
+    subskill.drills[safeTaskType as keyof typeof subskill.drills];
 
   if (!drill) {
     return (
@@ -140,7 +145,10 @@ export function DrillScreen() {
         <p className="text-xs text-neutral-600 font-mono">
           registered: {Object.keys(subskill.drills).join(', ')}
         </p>
-        <button onClick={goBack} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded text-sm">
+        <button
+          onClick={goBack}
+          className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded text-sm"
+        >
           ← Back
         </button>
       </div>
@@ -157,8 +165,7 @@ export function DrillScreen() {
   }) => {
     if (feedback || pendingRating) return;
 
-    const showFeedback =
-      config.taskConditions.feedbackTiming !== 'session-end';
+    const showFeedback = config.taskConditions.feedbackTiming !== 'session-end';
 
     if (showFeedback) {
       setFeedback({
@@ -178,10 +185,14 @@ export function DrillScreen() {
       return;
     }
 
-    await recordTrial(result.correct, result.userResponse, result.correctResponse, result.responseTimeMs);
+    await recordTrial(
+      result.correct,
+      result.userResponse,
+      result.correctResponse,
+      result.responseTimeMs
+    );
 
-    const intervalMs =
-      Math.max(0, config.taskConditions.interTrialIntervalSeconds) * 1000;
+    const intervalMs = Math.max(0, config.taskConditions.interTrialIntervalSeconds) * 1000;
     const feedbackMs = showFeedback
       ? (config.taskConditions.feedbackTiming === 'delayed'
           ? Math.max(500, config.taskConditions.feedbackDelaySeconds * 1000)
@@ -206,8 +217,7 @@ export function DrillScreen() {
       rating
     );
     setPendingRating(null);
-    const intervalMs =
-      Math.max(0, config.taskConditions.interTrialIntervalSeconds) * 1000;
+    const intervalMs = Math.max(0, config.taskConditions.interTrialIntervalSeconds) * 1000;
     advanceRef.current = setTimeout(() => {
       setFeedback(null);
       setTrialKey((k) => k + 1);
@@ -231,11 +241,15 @@ export function DrillScreen() {
               </div>
               <div>
                 <div className="text-xs text-neutral-500 mb-1">Correct</div>
-                <div className="text-3xl font-bold">{correctCount}/{trials.length}</div>
+                <div className="text-3xl font-bold">
+                  {correctCount}/{trials.length}
+                </div>
               </div>
               <div>
                 <div className="text-xs text-neutral-500 mb-1">Threshold</div>
-                <div className="text-3xl font-bold font-mono">{staircase.currentValue.toFixed(2)}</div>
+                <div className="text-3xl font-bold font-mono">
+                  {staircase.currentValue.toFixed(2)}
+                </div>
               </div>
             </div>
           </div>
@@ -275,24 +289,31 @@ export function DrillScreen() {
             </span>
             <span className="text-xs text-neutral-600 font-mono">
               Trial {trials.length + 1}
-              {config.taskConditions.repetitions !== 'endless' ? `/${config.taskConditions.repetitions}` : ''}
+              {config.taskConditions.repetitions !== 'endless'
+                ? `/${config.taskConditions.repetitions}`
+                : ''}
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-neutral-500 font-mono">Δ {staircase.currentValue.toFixed(2)}</span>
             {config.taskConditions.repetitions === 'endless' && (
-              <button onClick={endSession} className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs font-semibold">
+              <button
+                onClick={endSession}
+                className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs font-semibold"
+              >
                 End
               </button>
             )}
-            <button onClick={() => setSettingsOpen(true)} className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-xs"
+            >
               ⚙
             </button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className={settingsOpen ? 'flex-1 md:pr-[440px]' : 'flex-1'}>
         <DrillRenderer
           key={trialKey}
           trialKey={trialKey}
@@ -326,7 +347,9 @@ export function DrillScreen() {
             <div className="text-2xl font-bold text-white mb-1">
               {feedback.correct ? '✓ CORRECT' : '✗ INCORRECT'}
             </div>
-            <div className="text-white/80 text-sm">Correct answer: {String(feedback.correctResponse)}</div>
+            <div className="text-white/80 text-sm">
+              Correct answer: {String(feedback.correctResponse)}
+            </div>
           </div>
         </div>
       )}
@@ -345,6 +368,3 @@ export function DrillScreen() {
     </div>
   );
 }
-
-
-

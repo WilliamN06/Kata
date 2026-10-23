@@ -40,8 +40,8 @@ export function AngleT3Estimation({
   };
 
   return (
-    <div className="grid h-full min-h-[70vh] grid-rows-[minmax(220px,1fr)_auto]">
-      <div className="relative min-h-0">
+    <div className="flex h-full flex-col" style={{ minHeight: '70vh' }}>
+      <div className="relative min-h-0 flex-1" style={{ minHeight: 220 }}>
         <AngleStage
           angle={angle}
           referenceType={params.referenceType}
