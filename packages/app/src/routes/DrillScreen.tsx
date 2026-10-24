@@ -133,11 +133,15 @@ export function DrillScreen() {
   }
 
   const safeTaskType = taskType ?? '';
-  const drill =
-    subskill.drillsByVariable?.[variableId ?? '']?.[safeTaskType as keyof typeof subskill.drills] ??
-    subskill.drills[safeTaskType as keyof typeof subskill.drills];
+  const drill = (subskill.drillsByVariable?.[variableId ?? '']?.[
+    safeTaskType as keyof typeof subskill.drills
+  ] ?? subskill.drills[safeTaskType as keyof typeof subskill.drills]) as unknown as
+    React.ComponentType<DrillProps> | { renderer: React.ComponentType<DrillProps> };
 
-  if (!drill) {
+  const DrillRenderer = (typeof drill === 'function' ? drill : drill?.renderer) as
+    React.ComponentType<DrillProps> | undefined;
+
+  if (!DrillRenderer) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-neutral-400">Drill not registered for this task type.</p>
@@ -154,8 +158,6 @@ export function DrillScreen() {
       </div>
     );
   }
-
-  const DrillRenderer = drill.renderer as React.ComponentType<DrillProps>;
 
   const handleAnswer = async (result: {
     correct: boolean;

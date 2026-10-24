@@ -39,13 +39,43 @@ interface Tables {
   }>;
 }
 
+const STORAGE_KEY = 'kata.memory-adapter.v1';
+
+function emptyTables(): Tables {
+  return { variable_state: [], trial_history: [], drill_configurations: [] };
+}
+
+function loadTables(): Tables {
+  if (typeof window === 'undefined') return emptyTables();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return emptyTables();
+    const parsed = JSON.parse(raw) as Partial<Tables>;
+    return {
+      variable_state: Array.isArray(parsed.variable_state) ? parsed.variable_state : [],
+      trial_history: Array.isArray(parsed.trial_history) ? parsed.trial_history : [],
+      drill_configurations: Array.isArray(parsed.drill_configurations)
+        ? parsed.drill_configurations
+        : [],
+    };
+  } catch {
+    return emptyTables();
+  }
+}
+
 export class MemoryAdapter implements DbAdapter {
-  private tables: Tables = {
-    variable_state: [],
-    trial_history: [],
-    drill_configurations: [],
-  };
-  private nextTrialId = 1;
+  private tables: Tables = loadTables();
+  private nextTrialId =
+    this.tables.trial_history.reduce((max, row) => Math.max(max, row.id), 0) + 1;
+
+  private persist(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.tables));
+    } catch (err) {
+      console.warn('[MemoryAdapter] failed to persist tables:', err);
+    }
+  }
 
   async exec(_sql: string, _params?: unknown[]): Promise<void> {
     // Schema is implicit in the memory adapter; no-op.
@@ -63,6 +93,7 @@ export class MemoryAdapter implements DbAdapter {
       const row = { variable_id, accuracy, threshold, trial_count, last_practiced };
       if (idx >= 0) this.tables.variable_state[idx] = row;
       else this.tables.variable_state.push(row);
+      this.persist();
       return;
     }
 
@@ -82,6 +113,7 @@ export class MemoryAdapter implements DbAdapter {
         correct_response, rating_json,
         created_at: new Date().toISOString(),
       });
+      this.persist();
       return;
     }
 
@@ -95,6 +127,7 @@ export class MemoryAdapter implements DbAdapter {
       };
       if (idx >= 0) this.tables.drill_configurations[idx] = row;
       else this.tables.drill_configurations.push(row);
+      this.persist();
       return;
     }
 

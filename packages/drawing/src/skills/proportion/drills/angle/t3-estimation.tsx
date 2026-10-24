@@ -40,7 +40,7 @@ export function AngleT3Estimation({
   };
 
   return (
-    <div className="flex h-full flex-col" style={{ minHeight: '70vh' }}>
+    <div className="flex h-full flex-col" style={{ minHeight: 'calc(100vh - 53px)' }}>
       <div className="relative min-h-0 flex-1" style={{ minHeight: 220 }}>
         <AngleStage
           angle={angle}
