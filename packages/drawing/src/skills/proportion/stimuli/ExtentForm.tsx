@@ -273,13 +273,13 @@ export function ExtentForm(props: ExtentFormProps) {
     ]);
   }, [relationship]);
 
-  const padding = Math.min(dims.width, dims.height) * 0.06 + Math.max(lineThickness, dotSize) / 2;
+  const padding = Math.max(lineThickness, dotSize) / 2 + 4;
 
   const layout = useMemo(() => {
     const usableW = dims.width - padding * 2;
     const usableH = dims.height - padding * 2;
     const shortSide = Math.min(usableW, usableH);
-    const referenceFraction = Math.min(0.9, Math.max(0.05, baseLength / 100));
+    const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
     const rawA = shortSide * referenceFraction * scale;
     const rawB = rawA * ratio;
     const gap = Math.max(rawA * 0.5, 20);
@@ -313,7 +313,7 @@ export function ExtentForm(props: ExtentFormProps) {
     const usableW = dims.width - padding * 2;
     const usableH = dims.height - padding * 2;
     const shortSide = Math.min(usableW, usableH);
-    const referenceFraction = Math.min(0.9, Math.max(0.05, baseLength / 100));
+    const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
     const rawH = shortSide * referenceFraction * scale;
     const rawV = rawH / Math.max(0.01, ratio);
     const fit = fitFactor(dims.width, dims.height, position, padding, rawH, rawV);

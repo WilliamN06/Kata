@@ -20,6 +20,7 @@ export function T3Estimation({
   const [answered, setAnswered] = useState(false);
   const [firstTerm, setFirstTerm] = useState('1');
   const [secondTerm, setSecondTerm] = useState('1');
+  const [showWholeError, setShowWholeError] = useState(false);
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
@@ -35,6 +36,11 @@ export function T3Estimation({
 
   const handle = () => {
     if (answered || numericGuess === null) return;
+    if (numericGuess % 1 !== 0) {
+      setShowWholeError(true);
+      return;
+    }
+    setShowWholeError(false);
     setAnswered(true);
     const correct = Math.abs(numericGuess - ratio) / ratio <= p.tolerance;
     setTimeout(
@@ -106,6 +112,11 @@ export function T3Estimation({
           {showInvalid && (
             <p className="font-mono text-xs text-red-400">
               Both ratio terms must be positive numbers.
+            </p>
+          )}
+          {showWholeError && (
+            <p className="font-mono text-xs text-red-400">
+              The ratio must be a whole number.
             </p>
           )}
         </div>

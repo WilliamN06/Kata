@@ -30,7 +30,6 @@ export function useDrillState(config: DrillConfiguration | null) {
   }, [
     config?.id,
     config?.variableParams.intervalValue,
-    config?.variableParams.ratioValue,
     config?.variableParams.angleValue,
     config?.variableParams.offset,
     config?.variableParams.range,
@@ -165,9 +164,18 @@ function getStaircaseBounds(
 function getInitialValue(config: DrillConfiguration): number {
   const v = config.variableParams;
   if (typeof v.intervalValue === 'number') return v.intervalValue;
-  if (typeof v.ratioValue === 'number') return v.ratioValue;
   if (typeof v.angleValue === 'number') return v.angleValue;
   if (typeof v.offset === 'number') return v.offset;
   if (typeof v.range === 'number') return v.range;
+
+  // For proportion V1 without a fixed ratioValue, pick a random whole number
+  // within the lower/upper bounds each time the drill starts.
+  const lower = Number(v.lowerBound);
+  const upper = Number(v.upperBound);
+  if (Number.isFinite(lower) && Number.isFinite(upper) && lower > 0 && upper > 0) {
+    const min = Math.min(lower, upper);
+    const max = Math.max(lower, upper);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
   return 1;
 }

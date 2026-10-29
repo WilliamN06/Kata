@@ -18,18 +18,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
     definition:
       'The capacity to perceive the ratio between two extents on the same plane — as dots, lines, or lines with dots, in any arrangement.',
     unit: 'ratio',
-    defaultValue: 2,
     variableDimensions: [
-      // ---------- RATIO ----------
-      {
-        id: 'ratioValue',
-        label: 'Ratio Value',
-        kind: 'number',
-        defaultValue: 2,
-        range: { min: 0.01, max: 1000, step: 0.01, unit: ':1', extendable: true },
-        helpText:
-          'Target / reference. 2 = target is twice as long as reference. Any positive number. 1.618, √2, anything.',
-      },
       {
         id: 'lowerBound',
         label: 'Lower Ratio Bound',
@@ -120,8 +109,8 @@ export const PROPORTION_VARIABLES: Variable[] = [
         id: 'baseLength',
         label: 'Reference Length',
         kind: 'number',
-        defaultValue: 50,
-        range: { min: 10, max: 90, step: 1, unit: '%', extendable: false },
+        defaultValue: 80,
+        range: { min: 10, max: 100, step: 1, unit: '%', extendable: false },
         helpText:
           'Reference extent as a percentage of the available window. The target is reference x ratio; both are fitted to the stage.',
       },

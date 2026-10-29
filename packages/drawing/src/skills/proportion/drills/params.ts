@@ -6,31 +6,31 @@ export function readProportionParams(
   variableParams: Record<string, string | number>,
   stimulusParams: Record<string, string | number>
 ) {
-  const rawLower = Number(variableParams.lowerBound) || 1;
-  const rawUpper = Number(variableParams.upperBound) || 10;
-  const lowerBound = Math.max(0.01, Math.min(rawLower, rawUpper));
-  const upperBound = Math.max(lowerBound, Math.max(rawLower, rawUpper));
+  const rawLower = Number(variableParams.lowerBound);
+  const rawUpper = Number(variableParams.upperBound);
+  const lowerBound = Number.isFinite(rawLower) && rawLower > 0 ? rawLower : 1;
+  const upperBound = Number.isFinite(rawUpper) && rawUpper > 0 ? Math.max(lowerBound, rawUpper) : 10;
 
   return {
     lowerBound,
     upperBound,
-    ratioDirection: (variableParams.ratioDirection as RatioDirection) || 'both',
-    markType: (variableParams.markType as string) || 'line-with-dots',
+    ratioDirection: (variableParams.ratioDirection as RatioDirection) ?? 'both',
+    markType: (variableParams.markType as string) ?? 'line-with-dots',
     relationship:
-      (variableParams.relationship as string) || 'parallel-same-axis',
-    angle: Number(variableParams.angle) || 0,
-    jointAngle: Number(variableParams.jointAngle) || 90,
-    baseLength: Number(variableParams.baseLength) || 50,
-    tolerance: Number(variableParams.tolerance) || 0.15,
+      (variableParams.relationship as string) ?? 'parallel-same-axis',
+    angle: Number.isFinite(Number(variableParams.angle)) ? Number(variableParams.angle) : 0,
+    jointAngle: Number.isFinite(Number(variableParams.jointAngle)) ? Number(variableParams.jointAngle) : 90,
+    baseLength: Number.isFinite(Number(variableParams.baseLength)) ? Number(variableParams.baseLength) : 80,
+    tolerance: Number.isFinite(Number(variableParams.tolerance)) ? Number(variableParams.tolerance) : 0.15,
     showLabels: String(variableParams.showLabels) === 'on',
-    dotSize: Number(stimulusParams.dotSize) || 14,
-    lineThickness: Number(stimulusParams.lineThickness) || 3,
-    lineStyle: (stimulusParams.lineStyle as string) || 'solid',
-    contrast: (stimulusParams.contrast as string) || 'high',
-    backgroundValue: (stimulusParams.backgroundValue as string) || 'dark',
-    position: (stimulusParams.position as string) || 'centre',
-    scale: Number(stimulusParams.scale) || 1,
-    referenceUnit: (stimulusParams.referenceUnit as string) || 'absent',
+    dotSize: Number.isFinite(Number(stimulusParams.dotSize)) ? Number(stimulusParams.dotSize) : 14,
+    lineThickness: Number.isFinite(Number(stimulusParams.lineThickness)) ? Number(stimulusParams.lineThickness) : 3,
+    lineStyle: (stimulusParams.lineStyle as string) ?? 'solid',
+    contrast: (stimulusParams.contrast as string) ?? 'high',
+    backgroundValue: (stimulusParams.backgroundValue as string) ?? 'dark',
+    position: (stimulusParams.position as string) ?? 'centre',
+    scale: Number.isFinite(Number(stimulusParams.scale)) ? Number(stimulusParams.scale) : 1,
+    referenceUnit: (stimulusParams.referenceUnit as string) ?? 'absent',
   };
 }
 
@@ -42,9 +42,10 @@ export function resolveRatio(
 ): number {
   const value = Number(currentValue);
   const ratio = Number.isFinite(value) && value > 0 ? value : fallback;
-  const lower = Math.max(0.01, lowerBound);
-  const upper = Math.max(lower, upperBound);
-  return Math.min(upper, Math.max(lower, ratio));
+  const whole = Math.round(ratio);
+  const lower = Math.max(1, Math.round(lowerBound));
+  const upper = Math.max(lower, Math.round(upperBound));
+  return Math.min(upper, Math.max(lower, whole));
 }
 
 export function ratioForParams(
@@ -71,7 +72,8 @@ export function resolveExtentRatio(
       : direction === 'b-to-a'
         ? false
         : random() >= 0.5;
-  return bIsLonger ? ratio : 1 / ratio;
+  // Keep the ratio a whole number; direction only decides which side is longer.
+  return bIsLonger ? ratio : ratio;
 }
 
 export function formRatio(
