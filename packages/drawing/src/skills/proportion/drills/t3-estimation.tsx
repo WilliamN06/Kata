@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
-import { formPropsFromParams, formRatio, ratioForParams, readProportionParams } from './params';
+import { formPropsFromParams, formRatio, readProportionParams } from './params';
 
 function parseRatioTerm(value: string): number | null {
   const cleaned = value.trim();
@@ -21,11 +21,21 @@ export function T3Estimation({
   const [firstTerm, setFirstTerm] = useState('1');
   const [secondTerm, setSecondTerm] = useState('1');
   const [showWholeError, setShowWholeError] = useState(false);
+  const [targetRatio, setTargetRatio] = useState<number>(1);
+
+  useEffect(() => {
+    const lower = Math.max(1, Math.floor(p.lowerBound));
+    const upper = Math.max(lower, Math.floor(p.upperBound));
+    setTargetRatio(Math.floor(Math.random() * (upper - lower + 1)) + lower);
+  }, []);
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const ratio = ratioForParams(currentValue, p);
-  const extentRatio = useMemo(() => formRatio(ratio, p), [ratio, p.markType, p.ratioDirection]);
+  const extentRatio = useMemo(() => formRatio(targetRatio, p), [
+    targetRatio,
+    p.markType,
+    p.ratioDirection,
+  ]);
   const numerator = parseRatioTerm(firstTerm);
   const denominator = parseRatioTerm(secondTerm);
   const numericGuess = numerator !== null && denominator !== null ? numerator / denominator : null;
@@ -42,14 +52,14 @@ export function T3Estimation({
     }
     setShowWholeError(false);
     setAnswered(true);
-    const correct = Math.abs(numericGuess - ratio) / ratio <= p.tolerance;
+    const correct = Math.abs(numericGuess - targetRatio) / targetRatio <= p.tolerance;
     setTimeout(
       () =>
         onAnswer({
           correct,
           responseTimeMs: Date.now() - startTime.current,
           userResponse: `${firstTerm.trim()}:${secondTerm.trim()}`,
-          correctResponse: ratio,
+          correctResponse: targetRatio,
         }),
       700
     );

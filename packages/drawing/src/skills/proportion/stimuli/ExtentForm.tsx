@@ -262,6 +262,9 @@ export function ExtentForm(props: ExtentFormProps) {
 
   const colours = CONTRAST_COLOURS[contrast];
 
+  // Small gap between the limit box and the window/settings/question edges.
+  const limitGap = Math.max(lineThickness, dotSize);
+
   const resolvedRelationship: Exclude<Relationship, 'random'> = useMemo(() => {
     if (relationship !== 'random') return relationship;
     return pickRandom<Exclude<Relationship, 'random'>>([
@@ -273,14 +276,12 @@ export function ExtentForm(props: ExtentFormProps) {
     ]);
   }, [relationship]);
 
-  const padding = Math.max(lineThickness, dotSize) / 2 + 4;
-
   const layout = useMemo(() => {
-    const usableW = dims.width - padding * 2;
-    const usableH = dims.height - padding * 2;
+    const usableW = dims.width - limitGap * 2;
+    const usableH = dims.height - limitGap * 2;
     const shortSide = Math.min(usableW, usableH);
     const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
-    const rawA = shortSide * referenceFraction * scale;
+    const rawA = usableW * referenceFraction * scale;
     const rawB = rawA * ratio;
     const gap = Math.max(rawA * 0.5, 20);
     const angleRad = (angle * Math.PI) / 180;
@@ -292,7 +293,7 @@ export function ExtentForm(props: ExtentFormProps) {
       dims.width,
       dims.height,
       position,
-      padding,
+      limitGap,
       rawBounds.maxX - rawBounds.minX,
       rawBounds.maxY - rawBounds.minY
     );
@@ -305,18 +306,16 @@ export function ExtentForm(props: ExtentFormProps) {
       centre.x - (scaledBounds.minX + scaledBounds.maxX) / 2,
       centre.y - (scaledBounds.minY + scaledBounds.maxY) / 2
     );
-  }, [dims, padding, baseLength, scale, ratio, angle, jointAngle, position, resolvedRelationship]);
+  }, [dims, limitGap, baseLength, scale, ratio, angle, jointAngle, position, resolvedRelationship]);
 
   const twoDots = useMemo(() => {
     if (markType !== 'two-dots') return null;
 
-    const usableW = dims.width - padding * 2;
-    const usableH = dims.height - padding * 2;
-    const shortSide = Math.min(usableW, usableH);
+    const usableW = dims.width - limitGap * 2;
     const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
-    const rawH = shortSide * referenceFraction * scale;
+    const rawH = usableW * referenceFraction * scale;
     const rawV = rawH / Math.max(0.01, ratio);
-    const fit = fitFactor(dims.width, dims.height, position, padding, rawH, rawV);
+    const fit = fitFactor(dims.width, dims.height, position, limitGap, rawH, rawV);
     const horizontal = rawH * fit;
     const vertical = rawV * fit;
     const centre = targetCentre(dims.width, dims.height, position);
@@ -327,7 +326,7 @@ export function ExtentForm(props: ExtentFormProps) {
       x2: centre.x + horizontal / 2,
       y2: centre.y - vertical / 2,
     };
-  }, [markType, dims, padding, baseLength, scale, ratio, position]);
+  }, [markType, dims, limitGap, baseLength, scale, ratio, position]);
 
   const showDots =
     markType === 'two-dots' ||
@@ -367,6 +366,17 @@ export function ExtentForm(props: ExtentFormProps) {
           twoDots ? 'Two dots at opposite corners of an unseen rectangle' : 'Two extents to compare'
         }
       >
+        {/* Limit box — light dark blue boundary, inset by a small gap */}
+        <rect
+          x={limitGap}
+          y={limitGap}
+          width={dims.width - limitGap * 2}
+          height={dims.height - limitGap * 2}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth={2}
+          pointerEvents="none"
+        />
         {/* Minimal grid */}
         {backgroundValue === 'grid' && (
           <>
