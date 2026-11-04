@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 
 export type MarkType =
-  'two-dots' | 'three-dots' | 'line' | 'line-with-dots' | 'line-with-three-dots';
+  'two-dots' | 'three-dots' | 'four-dots' | 'line' | 'line-with-dots' | 'line-with-three-dots';
 
 export type Relationship =
   | 'parallel-same-axis'
@@ -281,8 +281,8 @@ export function ExtentForm(props: ExtentFormProps) {
     const usableH = dims.height - limitGap * 2;
     const shortSide = Math.min(usableW, usableH);
     const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
-    const rawA = usableW * referenceFraction * scale;
-    const rawB = rawA * ratio;
+    const rawB = usableW * referenceFraction * scale;
+    const rawA = rawB / Math.max(0.01, ratio);
     const gap = Math.max(rawA * 0.5, 20);
     const angleRad = (angle * Math.PI) / 180;
     const jointRad = (jointAngle * Math.PI) / 180;
@@ -328,9 +328,64 @@ export function ExtentForm(props: ExtentFormProps) {
     };
   }, [markType, dims, limitGap, baseLength, scale, ratio, position]);
 
+  const fourDots = useMemo(() => {
+    if (markType !== 'four-dots') return null;
+
+    const usableW = dims.width - limitGap * 2;
+    const usableH = dims.height - limitGap * 2;
+    const centre = targetCentre(dims.width, dims.height, position);
+
+    // Width based on baseLength % of window width
+    const width = usableW * (baseLength / 100) * scale;
+    // Height derived from ratio (width / height = ratio)
+    const height = width / Math.max(0.01, ratio);
+
+    // Clamp to fit within bounds
+    const actualW = Math.min(width, usableW);
+    const actualH = Math.min(height, usableH);
+
+    // Small jitter around corners so dots aren't perfectly aligned
+    const jitter = Math.min(actualW, actualH) * 0.12;
+    const randomOffset = () => (Math.random() - 0.5) * jitter;
+
+    const cx = centre.x;
+    const cy = centre.y;
+    const leftX = cx - actualW / 2;
+    const rightX = cx + actualW / 2;
+    const topY = cy - actualH / 2;
+    const bottomY = cy + actualH / 2;
+
+    const clampX = (x: number) => Math.min(Math.max(x, limitGap), dims.width - limitGap);
+    const clampY = (y: number) => Math.min(Math.max(y, limitGap), dims.height - limitGap);
+
+    return {
+      dots: [
+        { x: clampX(leftX + randomOffset()), y: clampY(topY + randomOffset()) },
+        { x: clampX(rightX + randomOffset()), y: clampY(topY + randomOffset()) },
+        { x: clampX(leftX + randomOffset()), y: clampY(bottomY + randomOffset()) },
+        { x: clampX(rightX + randomOffset()), y: clampY(bottomY + randomOffset()) },
+      ],
+    };
+  }, [markType, dims, limitGap, baseLength, scale, ratio]);
+
+  const threeDots = useMemo(() => {
+    if (markType !== 'three-dots') return null;
+
+    // Three dots: start of extent A, shared point (or end of A if no shared),
+    // end of extent B. Respects relationship/angle/jointAngle via layout.
+    const shared = layout.shared ?? {
+      x: layout.a.x2,
+      y: layout.a.y2,
+    };
+
+    return {
+      a1: { x: layout.a.x1, y: layout.a.y1 },
+      shared,
+      b2: { x: layout.b.x2, y: layout.b.y2 },
+    };
+  }, [markType, layout]);
+
   const showDots =
-    markType === 'two-dots' ||
-    markType === 'three-dots' ||
     markType === 'line-with-dots' ||
     markType === 'line-with-three-dots';
   const showLines =
@@ -363,7 +418,11 @@ export function ExtentForm(props: ExtentFormProps) {
         style={{ position: 'absolute', inset: 0, display: 'block' }}
         role="img"
         aria-label={
-          twoDots ? 'Two dots at opposite corners of an unseen rectangle' : 'Two extents to compare'
+          markType === 'four-dots'
+            ? 'Four dots at extreme corners for width-to-height comparison'
+            : twoDots
+              ? 'Two dots at opposite corners of an unseen rectangle'
+              : 'Two extents to compare'
         }
       >
         {/* Limit box — light dark blue boundary, inset by a small gap */}
@@ -439,6 +498,20 @@ export function ExtentForm(props: ExtentFormProps) {
             <circle cx={twoDots.x2} cy={twoDots.y2} r={dotSize / 2} fill={colours.fg} />
           </>
         )}
+        {markType === 'four-dots' && fourDots && (
+          <>
+            {fourDots.dots.map((dot, i) => (
+              <circle key={i} cx={dot.x} cy={dot.y} r={dotSize / 2} fill={colours.fg} />
+            ))}
+          </>
+        )}
+        {markType === 'three-dots' && threeDots && (
+          <>
+            <circle cx={threeDots.a1.x} cy={threeDots.a1.y} r={dotSize / 2} fill={colours.fg} />
+            <circle cx={threeDots.shared.x} cy={threeDots.shared.y} r={dotSize / 2} fill={colours.fg} />
+            <circle cx={threeDots.b2.x} cy={threeDots.b2.y} r={dotSize / 2} fill={colours.fg} />
+          </>
+        )}
 
         {!twoDots && showDots && (
           <>
@@ -452,7 +525,7 @@ export function ExtentForm(props: ExtentFormProps) {
         )}
 
         {/* Labels for clarity */}
-        {showLabels && !twoDots && (
+        {showLabels && !twoDots && markType !== 'three-dots' && markType !== 'four-dots' && (
           <>
             <text
               x={layout.a.x1 + 12}

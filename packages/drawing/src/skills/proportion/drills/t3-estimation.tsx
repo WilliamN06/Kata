@@ -76,11 +76,13 @@ export function T3Estimation({
       >
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-2">
           <div className="flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1">
-            <p className="text-center text-base">
-              {p.markType === 'two-dots'
-                ? 'Type the horizontal-to-vertical ratio at the unseen corner.'
+          <p className="text-center text-base">
+            {p.markType === 'two-dots'
+              ? 'Type the horizontal-to-vertical ratio at the unseen corner.'
+              : p.markType === 'four-dots'
+                ? 'Type the width-to-height ratio of the four dots at the extremes.'
                 : 'Type the longer-to-shorter ratio.'}
-            </p>
+          </p>
             <p className="font-mono text-xs text-neutral-600">
               Accepted error: ±{(p.tolerance * 100).toFixed(0)}%
             </p>

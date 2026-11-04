@@ -60,10 +60,11 @@ export const PROPORTION_VARIABLES: Variable[] = [
           { value: 'line', label: 'Lines only (no dots)' },
           { value: 'line-with-dots', label: 'Lines with end dots' },
           { value: 'line-with-three-dots', label: 'Lines with 3 dots (mid marked)' },
+          { value: 'four-dots', label: 'Four dots at extremes (random width-to-height)' },
         ],
         defaultValue: 'line-with-dots',
         helpText:
-          'How the extents are drawn. Two dots shows opposite corners of an unseen rectangle: judge horizontal against vertical.',
+          'How the extents are drawn. Two dots shows opposite corners of an unseen rectangle: judge horizontal against vertical. Four dots shows dots at random extreme corners: judge width against height without alignment.',
       },
 
       // ---------- RELATIONSHIP (how the two extents sit relative to each other) ----------
