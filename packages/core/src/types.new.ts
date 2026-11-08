@@ -6,7 +6,7 @@ export type SubskillId =
   | 'music:p1-pitch'
   | 'music:p2-dynamic'
   | 'music:p3-timbre'
-  | 'music:p4-rhythm'
+  | 'music:p4-time'
   | 'music:p5-spatial';
 
 export type VariableId =
@@ -34,11 +34,12 @@ export type VariableId =
   | 'music:p3-timbre:V8'
   | 'music:p3-timbre:V9'
   | 'music:p3-timbre:V10'
-  | 'music:p4-rhythm:V1'
-  | 'music:p4-rhythm:V2'
-  | 'music:p4-rhythm:V3'
-  | 'music:p4-rhythm:V4'
-  | 'music:p4-rhythm:V5'
+  | 'music:p4-time:V1'
+  | 'music:p4-time:V2'
+  | 'music:p4-time:V3'
+  | 'music:p4-time:V4'
+  | 'music:p4-time:V5'
+  | 'music:p4-time:V6'
   | 'music:p5-spatial:V1'
   | 'music:p5-spatial:V2';
 

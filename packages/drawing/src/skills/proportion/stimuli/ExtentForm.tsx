@@ -279,10 +279,9 @@ export function ExtentForm(props: ExtentFormProps) {
   const layout = useMemo(() => {
     const usableW = dims.width - limitGap * 2;
     const usableH = dims.height - limitGap * 2;
-    const shortSide = Math.min(usableW, usableH);
     const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
-    const rawB = usableW * referenceFraction * scale;
-    const rawA = rawB / Math.max(0.01, ratio);
+    const rawA = usableW * referenceFraction * scale;
+    const rawB = rawA * ratio;
     const gap = Math.max(rawA * 0.5, 20);
     const angleRad = (angle * Math.PI) / 180;
     const jointRad = (jointAngle * Math.PI) / 180;

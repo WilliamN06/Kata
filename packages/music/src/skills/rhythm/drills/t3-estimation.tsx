@@ -2,75 +2,142 @@
 import type { DrillProps } from '@kata/core';
 import { MusicDrillWrapper } from '../../../shared/MusicDrillWrapper';
 import { MusicStimulusView } from '../../../shared/MusicStimulusView';
-import { createRhythmStimulus, type RhythmNote, type DrumSound } from '../stimuli/rhythm-helper';
+import { playADSRNote, playMetronomeClick } from '../stimuli/rhythm-helper';
+import { getAudioContext, getMasterBus } from '@kata/audio';
 
 export function T3Estimation({ variable, variableParams, stimulusParams, taskConditions, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
+  const [guess, setGuess] = useState('');
 
   const varId = variable.id.split(':').pop() || 'V1';
   const bpm = Number(variableParams.tempo) || 100;
-  const drum = (stimulusParams.drumSound as DrumSound) || 'click';
+  const spb = 60 / bpm;
+  const metronomeOn = variableParams.metronomeToggle === true;
+  const metronomeVol = Number(variableParams.metronomeVolume) || 50;
 
-  const [guess, setGuess] = useState(varId === 'V3' ? 100 : 1);
+  const ADSR = {
+    attackTime: Number(variableParams.attackTime) || 10,
+    decayTime: Number(variableParams.decayTime) || 100,
+    sustainLevel: Number(variableParams.sustainLevel) || 70,
+    releaseTime: Number(variableParams.releaseTime) || 100,
+    toneColor: (variableParams.toneColor as string) || 'pure',
+  };
 
-  let min = 0, max = 10, unit = '', question = '';
-  let targetValue = 0;
+  const ctx = getAudioContext();
+  const bus = getMasterBus();
+
+  let targetValue: number;
+  let question: string;
+  let unitLabel: string;
+  let preDur: number;
+  let tolerance: number;
 
   if (varId === 'V1') {
     question = 'Estimate the beat offset (in beats):';
-    min = 0; max = 1; unit = 'beats'; targetValue = 0.5;
+    targetValue = 0.5;
+    unitLabel = 'beats';
+    tolerance = 0.05;
   } else if (varId === 'V2') {
-    question = 'Estimate the duration (in beats):';
-    min = 0; max = 4; unit = 'beats'; targetValue = 1.0;
+    const durMin = Number(variableParams.durationMin) || 50;
+    const durMax = Number(variableParams.durationMax) || 200;
+    const granularity = Number(variableParams.durationGranularity) || 10;
+    targetValue = Math.floor(Math.random() * (durMax - durMin + 1)) + durMin;
+    targetValue = Math.round(targetValue / granularity) * granularity;
+    question = 'Estimate the note duration (% of beat):';
+    unitLabel = '% of beat';
+    tolerance = granularity;
+    preDur = 0;
   } else if (varId === 'V3') {
-    question = 'Estimate the tempo (BPM):';
-    min = 40; max = 240; unit = 'BPM'; targetValue = bpm;
-    setGuess(100);
-  } else if (varId === 'V4') {
-    question = 'Estimate the beats per bar (meter numerator):';
-    min = 2; max = 12; unit = 'beats'; targetValue = Number(stimulusParams.meterNumerator) || 4;
+    const gapMin = Number(variableParams.gapMin) || 100;
+    const gapMax = Number(variableParams.gapMax) || 500;
+    const granularity = Number(variableParams.gapGranularity) || 10;
+    targetValue = Math.floor(Math.random() * (gapMax - gapMin + 1)) + gapMin;
+    targetValue = Math.round(targetValue / granularity) * granularity;
+    question = 'Estimate the silent gap (% of beat):';
+    unitLabel = '% of beat';
+    tolerance = granularity;
+    preDur = Number(variableParams.precedingDuration) || 50;
   } else {
-    question = 'Estimate the rhythmic ratio A:B:';
-    min = 1; max = 10; unit = ':1'; targetValue = 3;
+    question = 'Estimate the tempo (BPM):';
+    targetValue = bpm;
+    unitLabel = 'BPM';
+    tolerance = bpm * 0.15;
   }
 
-  const notes: RhythmNote[] = varId === 'V3'
-    ? Array.from({ length: 8 }, (_, i) => ({ beat: i, drum, velocity: 0.7 }))
-    : [
-        { beat: 0, drum, velocity: 0.9 },
-        { beat: 1, drum, velocity: 0.5 },
-        { beat: 2, drum, velocity: 0.7 },
-        { beat: 3, drum, velocity: 0.5 },
-      ];
+  const scheduleNote = (when: number, freq: number, durSec: number) => {
+    playADSRNote(freq, when, durSec, ADSR, 0.6);
+  };
 
-  const dependencyKey = JSON.stringify(stimulusParams) + '|' + JSON.stringify(variableParams) + '|' + varId;
+  const scheduleMetro = (when: number, numBeats: number) => {
+    if (!metronomeOn) return;
+    for (let b = 0; b < numBeats; b++) {
+      playMetronomeClick(when + b * spb, metronomeVol / 100, b % 4 === 0);
+    }
+  };
 
-  const createStimulus = (ctx: AudioContext, dest: AudioNode) =>
-    createRhythmStimulus({ notes, bpm, meterNumerator: Number(stimulusParams.meterNumerator) || 4 }, ctx, dest).handle;
+  const totalSec = varId === 'V2' ? (targetValue / 100) * spb + 1.5 :
+                   varId === 'V3' ? (preDur + targetValue + 200) / 1000 + 1.5 : 4;
+
+  const createStimulus = (ctx: AudioContext, dest: AudioNode) => {
+    return {
+      play: async (start: number) => {
+        scheduleMetro(start, Math.ceil(totalSec / spb) + 1);
+
+        if (varId === 'V2') {
+          scheduleNote(start, 440, targetValue / 1000);
+        } else if (varId === 'V3') {
+          scheduleNote(start, 440, preDur / 1000);
+          scheduleNote(start + preDur / 1000 + targetValue / 1000, 440, preDur / 1000);
+        } else {
+          const notes = [{ beat: 0, drum: 'click', velocity: 0.8 }, { beat: 1, drum: 'click', velocity: 0.6 }];
+          for (const n of notes) {
+            playADSRNote(440, start + n.beat * spb, 0.1, ADSR, 0.7);
+          }
+        }
+      },
+      stop: () => {},
+    };
+  };
 
   const handle = () => {
     if (answered) return;
+    const g = Number(guess);
+    if (isNaN(g) || g <= 0) return;
     setAnswered(true);
-    const tolerance = (max - min) * 0.15;
-    const correct = Math.abs(guess - targetValue) <= tolerance;
+    const correct = Math.abs(g - targetValue) <= tolerance;
     setTimeout(() => onAnswer({
       correct,
       responseTimeMs: Date.now() - startTime.current,
-      userResponse: guess,
+      userResponse: g,
       correctResponse: targetValue,
     }), 700);
   };
 
   return (
-    <MusicDrillWrapper createStimulus={createStimulus} dependencyKey={dependencyKey}>
+    <MusicDrillWrapper createStimulus={createStimulus} dependencyKey={JSON.stringify(stimulusParams) + '|' + JSON.stringify(variableParams) + '|' + varId + '|' + targetValue}>
       {(h) => (
         <div className="flex flex-col items-center justify-center min-h-[70vh] p-8">
-          <MusicStimulusView handle={h} visualisation="waveform" showVisualisation={taskConditions.showVisualisation} durationMs={4000} />
+          <MusicStimulusView
+            handle={h}
+            visualisation="waveform"
+            showVisualisation={taskConditions.showVisualisation}
+            durationMs={totalSec * 1000}
+          />
           <p className="text-lg mt-6 mb-4">{question}</p>
-          <input type="range" min={min} max={max} step={varId === 'V3' ? 1 : 0.1} value={guess} onChange={(e) => setGuess(Number(e.target.value))} className="w-80" />
-          <p className="text-sm text-neutral-400 mt-2 font-mono">{guess.toFixed(varId === 'V3' ? 0 : 1)} {unit}</p>
-          <button onClick={handle} disabled={answered} className="mt-6 px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 rounded-lg font-semibold">CONFIRM</button>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="1"
+              value={guess}
+              onChange={(e) => setGuess(e.target.value)}
+              className="w-32 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-center font-mono text-lg"
+            />
+            <span className="font-mono text-xl text-neutral-500">{unitLabel}</span>
+          </div>
+          <button onClick={handle} disabled={answered || !guess} className="mt-6 px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 rounded-lg font-semibold">CONFIRM</button>
         </div>
       )}
     </MusicDrillWrapper>

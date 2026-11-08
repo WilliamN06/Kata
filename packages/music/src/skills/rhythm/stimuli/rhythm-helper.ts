@@ -1,6 +1,6 @@
-﻿import { getAudioContext } from '@kata/audio';
+﻿import { getAudioContext, getMasterBus } from '@kata/audio';
 import type { MusicStimulusHandle } from '../../../shared/MusicDrillWrapper';
-import { playDrumNote } from '../../../shared/SoundfontLoader';
+import { playDrumNote, playInstrumentNote } from '../../../shared/SoundfontLoader';
 
 export type DrumSound = 'kick' | 'snare' | 'hat' | 'clap' | 'click' | 'tom' | 'rim';
 
@@ -26,6 +26,79 @@ export interface RhythmPlayMethods {
   hasClicks: boolean;
   tempo: number;
   totalDurationSeconds: number;
+}
+
+export interface ADSRSettings {
+  attackTime: number;   // ms
+  decayTime: number;    // ms
+  sustainLevel: number; // 0-100 (%)
+  releaseTime: number;  // ms
+  toneColor: string;    // 'pure' | 'warm' | 'bright' | 'dark'
+}
+
+/**
+ * Play a single note with full ADSR envelope using a raw oscillator waveform.
+ * toneColor maps to oscillator wave type.
+ */
+export function playADSRNote(
+  frequency: number,
+  startTime: number,
+  durationSeconds: number,
+  adsr: ADSRSettings,
+  gain: number = 0.5
+): void {
+  const ctx = getAudioContext();
+  const wave: OscillatorType = (['sine', 'triangle', 'sawtooth', 'square'].includes(adsr.toneColor) ? adsr.toneColor : 'sine') as OscillatorType;
+  const osc = ctx.createOscillator();
+  osc.type = wave;
+  osc.frequency.value = frequency;
+
+  const g = ctx.createGain();
+  const a = adsr.attackTime / 1000;
+  const d = adsr.decayTime / 1000;
+  const r = adsr.releaseTime / 1000;
+  const s = adsr.sustainLevel / 100;
+
+  const attackEnd = startTime + a;
+  const decayEnd = attackEnd + d;
+  const sustainStart = decayEnd;
+  const sustainEnd = Math.max(sustainStart, startTime + durationSeconds - r);
+  const releaseEnd = sustainEnd + r;
+
+  g.gain.setValueAtTime(0, startTime);
+  g.gain.linearRampToValueAtTime(gain * 0.7, attackEnd);
+  g.gain.linearRampToValueAtTime(gain * 0.7 * s, sustainStart);
+  g.gain.setValueAtTime(gain * 0.7 * s, sustainEnd);
+  g.gain.linearRampToValueAtTime(0, releaseEnd);
+
+  osc.connect(g);
+  g.connect(getMasterBus());
+  osc.start(startTime);
+  osc.stop(releaseEnd + 0.05);
+}
+
+/**
+ * Play a metronome click at the given beat.
+ */
+export function playMetronomeClick(
+  startTime: number,
+  volume: number = 0.5,
+  isDownbeat: boolean = false
+): void {
+  const ctx = getAudioContext();
+  // Higher pitch for downbeat, lower for subdivision
+  const freq = isDownbeat ? 1200 : 800;
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = freq;
+  const g = ctx.createGain();
+  const clickLen = 0.05;
+  g.gain.setValueAtTime(volume, startTime);
+  g.gain.exponentialRampToValueAtTime(0.001, startTime + clickLen);
+  osc.connect(g);
+  g.connect(getMasterBus());
+  osc.start(startTime);
+  osc.stop(startTime + clickLen);
 }
 
 /**
