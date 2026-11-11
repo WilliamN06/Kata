@@ -1,248 +1,144 @@
-﻿import { SOUND_SOURCE_OPTIONS } from '../../shared/sound-source';
-import type { Variable } from '@kata/core';
+﻿import type { Variable } from '@kata/core';
+import {
+  num,
+  primitiveDimensions,
+  single,
+  concat,
+  sourceFrom,
+  sourceParams,
+  type Params,
+  type PrimitiveModel,
+  type Sequence,
+} from '../../shared/primitives';
+
+/**
+ * Time has two isolatable primitives:
+ *   - how long a sound lasts (onset → offset)
+ *   - how long a silence lasts (offset → next onset)
+ * Onset timing, tempo, grouping and syncopation are combinations of these
+ * (plus accents, which are amplitude) and belong in integration drills.
+ */
+
+const beatMs = (p: Params) => 60000 / Math.max(1, num(p, 'tempo', 100));
+
+const beatDisplay = (p: Params) =>
+  p.units === 'beats'
+    ? { unit: '% beat', to: (v: number) => (v / beatMs(p)) * 100, from: (d: number) => (d / 100) * beatMs(p), decimals: 0 }
+    : { unit: 'ms', to: (v: number) => v, from: (d: number) => d, decimals: 0 };
+
+const tone = (p: Params, durationMs: number): Sequence =>
+  single({
+    durationMs,
+    source: sourceFrom(p),
+    frequency: num(p, 'frequency', 440),
+    levelDb: num(p, 'levelDb', -12),
+    attackMs: num(p, 'rampMs', 5),
+    releaseMs: num(p, 'rampMs', 5),
+  });
+
+/** Four count-in clicks, so the stimulus starts on the next beat. */
+const countIn = (p: Params): Sequence | null => {
+  if (p.units !== 'beats' || p.countIn !== 'on') return null;
+  const b = beatMs(p) / 1000;
+  return {
+    sounds: [0, 1, 2, 3].map((i) => ({
+      at: i * b,
+      durationMs: 4,
+      source: 'click' as const,
+      frequency: 0,
+      levelDb: i === 0 ? -10 : -16,
+      attackMs: 0,
+      releaseMs: 0,
+    })),
+    lengthSec: 4 * b,
+  };
+};
+
+export const SOUND_DURATION: PrimitiveModel = {
+  quantity: 'sound duration',
+  lowWord: 'shorter',
+  highWord: 'longer',
+  scale: 'ratio',
+  unit: 'ms',
+  decimals: 0,
+  defaultRange: [100, 800],
+  delta: { start: 30, min: 1, max: 100 },
+  relativeMax: 2,
+  display: beatDisplay,
+  render: (v, p) => tone(p, v),
+  prelude: countIn,
+};
+
+export const SILENCE_DURATION: PrimitiveModel = {
+  quantity: 'silence duration',
+  lowWord: 'shorter',
+  highWord: 'longer',
+  scale: 'ratio',
+  unit: 'ms',
+  decimals: 0,
+  defaultRange: [50, 600],
+  delta: { start: 30, min: 1, max: 100 },
+  relativeMax: 2,
+  display: beatDisplay,
+  render: (v, p) => {
+    const marker = num(p, 'markerMs', 120);
+    return concat(tone(p, marker), tone(p, marker), v / 1000);
+  },
+  prelude: countIn,
+};
+
+const timeDims = [
+  {
+    id: 'units',
+    label: 'Units',
+    kind: 'select' as const,
+    defaultValue: 'ms',
+    options: [
+      { value: 'ms', label: 'Milliseconds' },
+      { value: 'beats', label: '% of beat' },
+    ],
+  },
+  { id: 'tempo', label: 'Tempo', kind: 'number' as const, defaultValue: 100, range: { min: 20, max: 400, step: 1, unit: 'BPM', extendable: true }, appliesWhen: { dimension: 'units', values: ['beats'] } },
+  {
+    id: 'countIn',
+    label: 'Count-in clicks',
+    kind: 'select' as const,
+    defaultValue: 'off',
+    options: [
+      { value: 'off', label: 'Off' },
+      { value: 'on', label: 'On (4 beats)' },
+    ],
+    appliesWhen: { dimension: 'units', values: ['beats'] },
+  },
+];
 
 export const RHYTHM_VARIABLES: Variable[] = [
   {
-    id: 'music:p4-time:V1' as any,
-    name: 'Onset Time',
-    definition: 'The capacity to detect when a sound begins relative to a reference.',
-    unit: 'ms',
-    defaultValue: 500,
-    variableDimensions: [
-      {
-        id: 'barsCount',
-        label: 'Bars in Pattern',
-        kind: 'number',
-        defaultValue: 2,
-        range: { min: 1, max: 8, step: 1, unit: 'bars', extendable: true },
-      },
-      {
-        id: 'subdivision',
-        label: 'Subdivision',
-        kind: 'select',
-        options: [
-          { value: '1/1', label: '1/1' },
-          { value: '1/2', label: '1/2' },
-          { value: '1/4', label: '1/4' },
-          { value: '1/8', label: '1/8' },
-          { value: '1/16', label: '1/16' },
-          { value: 'custom', label: 'Custom' },
-        ],
-        defaultValue: '1/4',
-      },
-      {
-        id: 'customSubdivision',
-        label: 'Custom Subdivision',
-        kind: 'number',
-        defaultValue: 5,
-        range: { min: 1, max: 512, step: 1, unit: '', extendable: true },
-        appliesWhen: { dimension: 'subdivision', values: ['custom'] },
-      },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 100, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-      { id: 'complexity', label: 'Complexity', kind: 'select', options: [{ value: 'simple', label: 'Simple' }, { value: 'syncopated', label: 'Syncopated' }, { value: 'complex', label: 'Complex' }], defaultValue: 'simple' },
-    ],
-    stimulusParameters: [
-      { id: 'soundSource', label: 'Sound Source', kind: 'select' as const, defaultValue: 'sine', options: SOUND_SOURCE_OPTIONS },
-      { id: 'drumSound', label: 'Drum Sound', kind: 'select', options: [
-        { value: 'click', label: 'Click' },
-        { value: 'kick', label: 'Kick' },
-        { value: 'snare', label: 'Snare' },
-        { value: 'hat', label: 'Hi-hat' },
-        { value: 'clap', label: 'Clap' },
-        { value: 'tom', label: 'Tom' },
-        { value: 'rim', label: 'Rim' },
-      ], defaultValue: 'click' },
-      { id: 'meterNumerator', label: 'Meter Numerator', kind: 'number', defaultValue: 4, range: { min: 1, max: 32, step: 1, unit: '', extendable: true } },
-      { id: 'meterDenominator', label: 'Meter Denominator', kind: 'select', options: [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '4', label: '4' }, { value: '8', label: '8' }, { value: '16', label: '16' }, { value: '32', label: '32' }], defaultValue: '4' },
-      { id: 'referenceClick', label: 'Reference Click', kind: 'select', options: [{ value: 'present', label: 'Present' }, { value: 'absent', label: 'Absent' }], defaultValue: 'present' },
-      { id: 'swing', label: 'Swing', kind: 'number', defaultValue: 0, range: { min: 0, max: 100, step: 1, unit: '%', extendable: false } },
-    ],
-    visualisation: 'waveform',
-  },
-
-  // ---------- V2: Onset Duration (singular note) ----------
-  {
     id: 'music:p4-time:V2' as any,
-    name: 'Onset Duration',
-    definition: 'The capacity to detect how long a single note/sound lasts from its onset to its end.',
+    name: 'Sound Duration',
+    definition: 'How long a sound lasts, from onset to offset.',
     unit: 'ms',
-    defaultValue: 500,
-    variableDimensions: [
-      // ---------- Test Type ----------
-      {
-        id: 'testType',
-        label: 'Test Type',
-        kind: 'select',
-        defaultValue: 'absoluteEstimation',
-        options: [
-          { value: 'absoluteEstimation', label: 'Absolute Estimation' },
-          { value: 'absoluteDiscrimination', label: 'Absolute Discrimination' },
-          { value: 'relativeRatioEstimation', label: 'Relative Ratio Estimation' },
-          { value: 'relativeRatioDiscrimination', label: 'Relative Ratio Discrimination' },
-        ],
-      },
-      // ---------- Duration Range (percentage of beat) ----------
-      { id: 'durationMin', label: 'Duration Min (% of beat)', kind: 'number', defaultValue: 50, range: { min: 10, max: 500, step: 5, unit: '% of beat', extendable: true } },
-      { id: 'durationMax', label: 'Duration Max (% of beat)', kind: 'number', defaultValue: 200, range: { min: 10, max: 500, step: 5, unit: '% of beat', extendable: true } },
-      { id: 'durationGranularity', label: 'Answer Granularity', kind: 'select', options: [
-        { value: '1', label: '1% of beat' },
-        { value: '5', label: '5% of beat' },
-        { value: '10', label: '10% of beat' },
-        { value: '25', label: '25% of beat' },
-      ], defaultValue: '10' },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 100, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-      { id: 'metronomeToggle', label: 'Metronome', kind: 'toggle', defaultValue: false },
-      { id: 'metronomeVolume', label: 'Metronome Volume', kind: 'number', defaultValue: 50, range: { min: 0, max: 100, step: 5, unit: '%', extendable: true } },
-      { id: 'articulation', label: 'Articulation', kind: 'select', options: [{ value: 'staccato', label: 'Staccato' }, { value: 'legato', label: 'Legato' }, { value: 'mixed', label: 'Mixed' }], defaultValue: 'legato' },
-      { id: 'dynamics', label: 'Dynamics', kind: 'select', options: [{ value: 'pp', label: 'pp' }, { value: 'p', label: 'p' }, { value: 'mp', label: 'mp' }, { value: 'mf', label: 'mf' }, { value: 'f', label: 'f' }, { value: 'ff', label: 'ff' }], defaultValue: 'mf' },
-      { id: 'attackTime', label: 'Attack', kind: 'number', defaultValue: 10, range: { min: 1, max: 500, step: 1, unit: 'ms', extendable: true } },
-      { id: 'decayTime', label: 'Decay', kind: 'number', defaultValue: 100, range: { min: 1, max: 2000, step: 1, unit: 'ms', extendable: true } },
-      { id: 'sustainLevel', label: 'Sustain', kind: 'number', defaultValue: 70, range: { min: 0, max: 100, step: 5, unit: '%', extendable: true } },
-      { id: 'releaseTime', label: 'Release', kind: 'number', defaultValue: 100, range: { min: 1, max: 2000, step: 1, unit: 'ms', extendable: true } },
-      { id: 'toneColor', label: 'Timbre / Tone', kind: 'select', options: [{ value: 'pure', label: 'Pure' }, { value: 'warm', label: 'Warm' }, { value: 'bright', label: 'Bright' }, { value: 'dark', label: 'Dark' }], defaultValue: 'pure' },
-    ],
-    stimulusParameters: [
-      { id: 'soundSource', label: 'Sound Source', kind: 'select' as const, defaultValue: 'sine', options: SOUND_SOURCE_OPTIONS },
-      { id: 'drumSound', label: 'Drum Sound', kind: 'select', options: [
-        { value: 'click', label: 'Click' },
-        { value: 'kick', label: 'Kick' },
-        { value: 'snare', label: 'Snare' },
-        { value: 'hat', label: 'Hi-hat' },
-        { value: 'clap', label: 'Clap' },
-        { value: 'tom', label: 'Tom' },
-        { value: 'rim', label: 'Rim' },
-      ], defaultValue: 'click' },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 100, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-    ],
+    defaultValue: 30,
+    variableDimensions: primitiveDimensions(SOUND_DURATION, timeDims),
+    stimulusParameters: sourceParams({ source: 'sine', frequency: 440, levelDb: -12 }),
     visualisation: 'waveform',
   },
-
-  // ---------- V3: Absence Duration (silent gap between notes) ----------
   {
     id: 'music:p4-time:V3' as any,
-    name: 'Absence Duration',
-    definition: 'The capacity to detect the silent gap between the end of one note and the onset of the next.',
+    name: 'Silence Duration',
+    definition: 'How long a silence lasts, from one sound’s offset to the next onset.',
     unit: 'ms',
-    defaultValue: 250,
-    variableDimensions: [
-      // ---------- Test Type ----------
-      {
-        id: 'testType',
-        label: 'Test Type',
-        kind: 'select',
-        defaultValue: 'absoluteEstimation',
-        options: [
-          { value: 'absoluteEstimation', label: 'Absolute Estimation' },
-          { value: 'absoluteDiscrimination', label: 'Absolute Discrimination' },
-          { value: 'relativeRatioEstimation', label: 'Relative Ratio Estimation' },
-          { value: 'relativeRatioDiscrimination', label: 'Relative Ratio Discrimination' },
-        ],
-      },
-      // ---------- Absence Duration Range (% of beat) ----------
-      { id: 'gapMin', label: 'Gap Min (% of beat)', kind: 'number', defaultValue: 50, range: { min: 10, max: 500, step: 5, unit: '% of beat', extendable: true } },
-      { id: 'gapMax', label: 'Gap Max (% of beat)', kind: 'number', defaultValue: 200, range: { min: 10, max: 500, step: 5, unit: '% of beat', extendable: true } },
-      { id: 'gapGranularity', label: 'Answer Granularity', kind: 'select', options: [
-        { value: '1', label: '1% of beat' },
-        { value: '5', label: '5% of beat' },
-        { value: '10', label: '10% of beat' },
-        { value: '25', label: '25% of beat' },
-      ], defaultValue: '10' },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 100, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-      { id: 'metronomeToggle', label: 'Metronome', kind: 'toggle', defaultValue: false },
-      { id: 'metronomeVolume', label: 'Metronome Volume', kind: 'number', defaultValue: 50, range: { min: 0, max: 100, step: 5, unit: '%', extendable: true } },
-      { id: 'precedingDuration', label: 'Preceding Sound (% of beat)', kind: 'number', defaultValue: 50, range: { min: 10, max: 500, step: 5, unit: '% of beat', extendable: true } },
-      { id: 'followingDuration', label: 'Following Sound (% of beat)', kind: 'number', defaultValue: 50, range: { min: 10, max: 500, step: 5, unit: '% of beat', extendable: true } },
-      { id: 'articulation', label: 'Articulation', kind: 'select', options: [{ value: 'staccato', label: 'Staccato' }, { value: 'legato', label: 'Legato' }, { value: 'mixed', label: 'Mixed' }], defaultValue: 'legato' },
-      { id: 'dynamics', label: 'Dynamics', kind: 'select', options: [{ value: 'pp', label: 'pp' }, { value: 'p', label: 'p' }, { value: 'mp', label: 'mp' }, { value: 'mf', label: 'mf' }, { value: 'f', label: 'f' }, { value: 'ff', label: 'ff' }], defaultValue: 'mf' },
-      { id: 'attackTime', label: 'Attack', kind: 'number', defaultValue: 10, range: { min: 1, max: 500, step: 1, unit: 'ms', extendable: true } },
-      { id: 'decayTime', label: 'Decay', kind: 'number', defaultValue: 100, range: { min: 1, max: 2000, step: 1, unit: 'ms', extendable: true } },
-      { id: 'sustainLevel', label: 'Sustain', kind: 'number', defaultValue: 70, range: { min: 0, max: 100, step: 5, unit: '%', extendable: true } },
-      { id: 'releaseTime', label: 'Release', kind: 'number', defaultValue: 100, range: { min: 1, max: 2000, step: 1, unit: 'ms', extendable: true } },
-      { id: 'toneColor', label: 'Timbre / Tone', kind: 'select', options: [{ value: 'pure', label: 'Pure' }, { value: 'warm', label: 'Warm' }, { value: 'bright', label: 'Bright' }, { value: 'dark', label: 'Dark' }], defaultValue: 'pure' },
-    ],
-    stimulusParameters: [
-      { id: 'soundSource', label: 'Sound Source', kind: 'select' as const, defaultValue: 'sine', options: SOUND_SOURCE_OPTIONS },
-      { id: 'drumSound', label: 'Drum Sound', kind: 'select', options: [
-        { value: 'click', label: 'Click' },
-        { value: 'kick', label: 'Kick' },
-        { value: 'snare', label: 'Snare' },
-        { value: 'hat', label: 'Hi-hat' },
-        { value: 'clap', label: 'Clap' },
-        { value: 'tom', label: 'Tom' },
-        { value: 'rim', label: 'Rim' },
-      ], defaultValue: 'click' },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 100, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-    ],
+    defaultValue: 30,
+    variableDimensions: primitiveDimensions(SILENCE_DURATION, [
+      ...timeDims,
+      { id: 'markerMs', label: 'Marker sound length', kind: 'number', defaultValue: 120, range: { min: 10, max: 1000, step: 5, unit: 'ms', extendable: true } },
+    ]),
+    stimulusParameters: sourceParams({ source: 'sine', frequency: 440, levelDb: -12 }),
     visualisation: 'waveform',
   },
+];
 
-  // ---------- V4: Tempo ----------
-  {
-    id: 'music:p4-time:V4' as any,
-    name: 'Tempo',
-    definition: 'The capacity to detect the speed of the sequence.',
-    unit: 'BPM',
-    defaultValue: 120,
-    variableDimensions: [
-      { id: 'barsCount', label: 'Bars in Pattern', kind: 'number', defaultValue: 2, range: { min: 1, max: 8, step: 1, unit: 'bars', extendable: true } },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 120, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-      { id: 'change', label: 'Change', kind: 'select', options: [{ value: 'stable', label: 'Stable' }, { value: 'accelerando', label: 'Accelerando' }, { value: 'ritardando', label: 'Ritardando' }], defaultValue: 'stable' },
-    ],
-    stimulusParameters: [
-      { id: 'soundSource', label: 'Sound Source', kind: 'select' as const, defaultValue: 'sine', options: SOUND_SOURCE_OPTIONS },
-      { id: 'drumSound', label: 'Drum Sound', kind: 'select', options: [
-        { value: 'click', label: 'Click' },
-        { value: 'kick', label: 'Kick' },
-        { value: 'snare', label: 'Snare' },
-        { value: 'hat', label: 'Hi-hat' },
-        { value: 'clap', label: 'Clap' },
-        { value: 'tom', label: 'Tom' },
-        { value: 'rim', label: 'Rim' },
-      ], defaultValue: 'click' },
-      { id: 'meter', label: 'Meter', kind: 'number', defaultValue: 4, range: { min: 1, max: 32, step: 1, unit: '', extendable: true } },
-    ],
-    visualisation: 'waveform',
-  },
-
-  // ---------- V5: Grouping ----------
-  {
-    id: 'music:p4-time:V5' as any,
-    name: 'Grouping',
-    definition: 'The capacity to detect how sounds are grouped.',
-    unit: 'beats',
-    defaultValue: 4,
-    variableDimensions: [
-      { id: 'meterNumerator', label: 'Meter Numerator', kind: 'number', defaultValue: 4, range: { min: 1, max: 32, step: 1, unit: '', extendable: true } },
-      { id: 'meterDenominator', label: 'Meter Denominator', kind: 'select', options: [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '4', label: '4' }, { value: '8', label: '8' }, { value: '16', label: '16' }], defaultValue: '4' },
-      { id: 'groupingCue', label: 'Grouping Cue', kind: 'select', options: [{ value: 'accent', label: 'Accent' }, { value: 'pitch', label: 'Pitch' }, { value: 'timbre', label: 'Timbre' }, { value: 'silence', label: 'Silence' }], defaultValue: 'accent' },
-    ],
-    stimulusParameters: [
-      { id: 'soundSource', label: 'Sound Source', kind: 'select' as const, defaultValue: 'sine', options: SOUND_SOURCE_OPTIONS },
-      { id: 'drumSound', label: 'Drum Sound', kind: 'select', options: [{ value: 'kick', label: 'Kick' }, { value: 'snare', label: 'Snare' }, { value: 'hat', label: 'Hat' }], defaultValue: 'kick' },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 100, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-    ],
-    visualisation: 'waveform',
-  },
-
-  // ---------- V6: Rhythmic Relationship ----------
-  {
-    id: 'music:p4-time:V6' as any,
-    name: 'Rhythmic Relationship',
-    definition: 'The capacity to detect how sounds relate rhythmically.',
-    unit: 'percent',
-    defaultValue: 50,
-    variableDimensions: [
-      { id: 'type', label: 'Type', kind: 'select', options: [{ value: 'syncopation', label: 'Syncopation' }, { value: 'polyrhythm', label: 'Polyrhythm' }, { value: 'hemiola', label: 'Hemiola' }, { value: 'cross-rhythm', label: 'Cross-rhythm' }, { value: 'groove', label: 'Groove' }, { value: 'humanisation', label: 'Humanisation' }], defaultValue: 'syncopation' },
-      { id: 'ratioA', label: 'Ratio A', kind: 'number', defaultValue: 3, range: { min: 1, max: 16, step: 1, unit: '', extendable: true } },
-      { id: 'ratioB', label: 'Ratio B', kind: 'number', defaultValue: 2, range: { min: 1, max: 16, step: 1, unit: '', extendable: true } },
-      { id: 'complexity', label: 'Complexity', kind: 'select', options: [{ value: 'simple', label: 'Simple' }, { value: 'complex', label: 'Complex' }], defaultValue: 'simple' },
-    ],
-    stimulusParameters: [
-      { id: 'soundSource', label: 'Sound Source', kind: 'select' as const, defaultValue: 'sine', options: SOUND_SOURCE_OPTIONS },
-      { id: 'drumA', label: 'Drum A', kind: 'select', options: [{ value: 'kick', label: 'Kick' }, { value: 'snare', label: 'Snare' }], defaultValue: 'kick' },
-      { id: 'drumB', label: 'Drum B', kind: 'select', options: [{ value: 'hat', label: 'Hat' }, { value: 'snare', label: 'Snare' }], defaultValue: 'hat' },
-      { id: 'tempo', label: 'Tempo', kind: 'number', defaultValue: 100, range: { min: 1, max: 1000, step: 1, unit: 'BPM', extendable: true } },
-    ],
-    visualisation: 'waveform',
-  },
+export const RHYTHM_MODELS = [
+  { variable: RHYTHM_VARIABLES[0]!, model: SOUND_DURATION },
+  { variable: RHYTHM_VARIABLES[1]!, model: SILENCE_DURATION },
 ];

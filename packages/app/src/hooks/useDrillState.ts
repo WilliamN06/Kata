@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+﻿import { useState, useCallback, useMemo, useRef } from 'react';
 import type { DrillConfiguration, TrialResult, PerceptualRating } from '@kata/core';
 import { createStaircase, updateStaircase } from '@kata/core';
 import type { StaircaseState } from '@kata/core';
@@ -21,21 +21,31 @@ export function useDrillState(config: DrillConfiguration | null) {
   );
   const startTimeRef = useRef(Date.now());
 
-  useEffect(() => {
-    if (!config) return;
+  // Reset during render (not in an effect) so the first trial never mounts
+  // with the placeholder staircase value from before settings loaded.
+  const resetKey = config
+    ? JSON.stringify([
+        config.id,
+        config.variableParams.intervalValue,
+        config.variableParams.angleValue,
+        config.variableParams.offset,
+        config.variableParams.range,
+        config.variableParams.lowerBound,
+        config.variableParams.upperBound,
+        config.variableParams.startDelta,
+        config.variableParams.minDelta,
+        config.variableParams.maxDelta,
+        config.variableParams.mode,
+      ])
+    : null;
+  const [appliedKey, setAppliedKey] = useState<string | null>(null);
+  if (resetKey !== null && resetKey !== appliedKey) {
+    setAppliedKey(resetKey);
     setTrials([]);
     setComplete(false);
     setStaircase(createConfiguredStaircase(config));
     startTimeRef.current = Date.now();
-  }, [
-    config?.id,
-    config?.variableParams.intervalValue,
-    config?.variableParams.angleValue,
-    config?.variableParams.offset,
-    config?.variableParams.range,
-    config?.variableParams.lowerBound,
-    config?.variableParams.upperBound,
-  ]);
+  }
 
   const recordTrial = useCallback(
     async (
@@ -151,6 +161,12 @@ function createConfiguredStaircase(
 function getStaircaseBounds(
   config: DrillConfiguration
 ): { minDelta: number; maxDelta: number } | undefined {
+  // Primitive drills: the staircase value is the difference Δ itself.
+  const minD = Number(config.variableParams.minDelta);
+  const maxD = Number(config.variableParams.maxDelta);
+  if (Number.isFinite(minD) && Number.isFinite(maxD) && minD >= 0 && maxD > 0) {
+    return { minDelta: Math.min(minD, maxD), maxDelta: Math.max(minD, maxD) };
+  }
   const lower = Number(config.variableParams.lowerBound);
   const upper = Number(config.variableParams.upperBound);
   if (!Number.isFinite(lower) || !Number.isFinite(upper)) return undefined;
@@ -163,6 +179,8 @@ function getStaircaseBounds(
 
 function getInitialValue(config: DrillConfiguration): number {
   const v = config.variableParams;
+  const start = Number(v.startDelta);
+  if (v.startDelta !== undefined && v.startDelta !== '' && Number.isFinite(start) && start > 0) return start;
   if (typeof v.intervalValue === 'number') return v.intervalValue;
   if (typeof v.angleValue === 'number') return v.angleValue;
   if (typeof v.offset === 'number') return v.offset;

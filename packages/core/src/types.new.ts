@@ -41,7 +41,9 @@ export type VariableId =
   | 'music:p4-time:V5'
   | 'music:p4-time:V6'
   | 'music:p5-spatial:V1'
-  | 'music:p5-spatial:V2';
+  | 'music:p5-spatial:V2'
+  | 'music:p5-spatial:V3'
+  | 'music:p5-spatial:V4';
 
 export type TaskType =
   | 'T1-categorisation'
