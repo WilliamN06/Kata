@@ -52,7 +52,7 @@ export function T7Identification({ variable, variableParams, stimulusParams, tas
     const pool: number[] = [targetValue];
     while (pool.length < 4) {
       const jitter = targetValue * (0.3 + Math.random() * 0.7);
-      const val = Math.max(50, Math.round(jitter / 10) * 10);
+      const val = Math.max(10, Math.round(jitter / 10) * 10);
       if (!pool.includes(val)) pool.push(val);
     }
     return pool.sort(() => Math.random() - 0.5).slice(0, 4);

@@ -65,7 +65,7 @@ export function T6Ordering({ variable, variableParams, stimulusParams, taskCondi
 
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-8">
-        <p className="text-lg mb-6">Order tempos from slowest to fastest:</p>
+        <p className="text-lg mt-6 mb-6">Order tempos from slowest to fastest:</p>
         <div className="flex gap-3 mb-6">
           {tempos.map((t) => (
             <button key={t} onClick={() => setOrder([...order, t])} disabled={order.includes(t) || answered} className="px-5 py-3 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-30 border border-neutral-700 rounded-lg font-mono font-semibold">{t} BPM</button>

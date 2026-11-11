@@ -70,8 +70,10 @@ export function T2Discrimination({ variable, variableParams, stimulusParams, tas
   const createStimulus = (ctx: AudioContext, dest: AudioNode) => {
     return {
       play: async (start: number) => {
+        // Play reference beat first
         scheduleMetro(start, Math.ceil(totalSec / spb) + 1);
 
+        // Play pattern A
         if (varId === 'V2') {
           scheduleNote(start, 440, targetVal / 1000);
           scheduleNote(start + targetVal / 1000 + 0.5, 440, targetVal / 1000);
@@ -86,6 +88,7 @@ export function T2Discrimination({ variable, variableParams, stimulusParams, tas
           }
         }
 
+        // Play pattern B after a pause
         setTimeout(async () => {
           const startB = start + totalSec;
           scheduleMetro(startB, Math.ceil(totalSec / spb) + 1);
@@ -131,9 +134,9 @@ export function T2Discrimination({ variable, variableParams, stimulusParams, tas
             durationMs={totalSec * 2 * 1000}
             label="♪ PLAY"
             playButtons={[
-              { label: '♪ PLAY A', variant: 'A' },
-              { label: '♪ PLAY B', variant: 'B' },
-              { label: '♪ PLAY BOTH', variant: 'target' },
+              { label: '♪ Play Reference (A)', variant: 'A' },
+              { label: '♪ Play Target (B)', variant: 'B' },
+              { label: '♪ Play Both', variant: 'target' },
             ]}
             onPlayAt={async (btn) => {
               const c = getAudioContext();
@@ -142,7 +145,7 @@ export function T2Discrimination({ variable, variableParams, stimulusParams, tas
                 const s = createStimulus(c, d);
                 await s.play(startTime.current + 0.1, 1);
               } else if (btn.variant === 'B') {
-                const startB = ctx.currentTime + 0.1;
+                const startB = startTime.current + 0.1;
                 scheduleMetro(startB, Math.ceil(totalSec / spb) + 1);
                 if (varId === 'V2') {
                   scheduleNote(startB, 440, altVal / 1000);
