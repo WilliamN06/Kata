@@ -6,6 +6,8 @@ import { randomHue, randomChroma, randomLStar, hueToFamily } from '../utils';
 export function T7Identification({ variable, variableParams, stimulusParams, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
+  // Fixed per trial: re-rendering (e.g. after answering) must not change the stimulus.
+  const rnd = useMemo(() => ({ hue: randomHue(), chroma: randomChroma(), l: randomLStar(), order: [0, 1, 2, 3].sort(() => Math.random() - 0.5) }), []);
 
   const varId = variable.id.split(':').pop() || 'V1';
   const surfaceSize = Number(stimulusParams.surfaceSize) || 160;
@@ -15,20 +17,20 @@ export function T7Identification({ variable, variableParams, stimulusParams, onA
   let options: string[] = [];
 
   if (varId === 'V1') {
-    hue = randomHue();
+    hue = rnd.hue;
     chroma = Number(stimulusParams.chroma) || 80;
     lStar = Number(stimulusParams.lStar) || 55;
     correct = hueToFamily(hue);
     options = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'violet', 'magenta'];
   } else if (varId === 'V2') {
-    chroma = randomChroma();
+    chroma = rnd.chroma;
     hue = Number(stimulusParams.hue) || 30;
     lStar = Number(stimulusParams.lStar) || 55;
     const bucket = chroma < 15 ? '0–15%' : chroma < 40 ? '15–40%' : chroma < 70 ? '40–70%' : '70–100%';
     correct = bucket;
     options = ['0–15%', '15–40%', '40–70%', '70–100%'];
   } else {
-    lStar = randomLStar();
+    lStar = rnd.l;
     hue = Number(stimulusParams.hue) || 0;
     chroma = Number(stimulusParams.chroma) || 0;
     const bucket = lStar < 10 ? '0–10' : lStar < 30 ? '10–30' : lStar < 50 ? '30–50' : lStar < 70 ? '50–70' : lStar < 90 ? '70–90' : '90–100';

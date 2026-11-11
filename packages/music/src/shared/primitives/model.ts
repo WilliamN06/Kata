@@ -44,6 +44,14 @@ export interface PrimitiveModel {
   render: (v: number, p: Params, seed: number) => Sequence;
   /** Played once before each presentation (e.g. a count-in). */
   prelude?: (p: Params) => Sequence | null;
+  /** Mastery target for T2 discrimination, in Δ units (≈ trained-listener threshold). */
+  target: number;
+  /** Requires headphones (shows the headphone check first). */
+  headphones?: boolean;
+  /** Default random level per presentation, so loudness is never a cue. 0 for level itself. */
+  levelRoveDb: number;
+  /** Optional value grid (e.g. 100 ¢) that identification options snap to, in absolute mode. */
+  grid?: number;
 }
 
 // ── Number helpers ──────────────────────────────────────────────
@@ -122,6 +130,8 @@ export interface Judged {
   formatDelta: (d: number) => string;
   /** Full presentation of value v (prelude included). */
   present: (v: number, seed: number) => Sequence;
+  /** Snap grid for identification options (absolute additive mode only). */
+  grid?: number;
   pairGapSec: number;
   intervalGapSec: number;
 }
@@ -144,6 +154,14 @@ export function judge(model: PrimitiveModel, p: Params): Judged {
   };
   const pairGapSec = num(p, 'pairGapMs', 600) / 1000;
   const intervalGapSec = num(p, 'intervalGapMs', 900) / 1000;
+  // Random level per presentation: only the trained variable is informative.
+  const levelRove = num(p, 'levelRoveDb', model.levelRoveDb);
+  const render = (v: number, seed: number): Sequence => {
+    const seq = model.render(v, p, seed);
+    if (!levelRove) return seq;
+    const shift = (mulberry32(seed ^ 0x51ed270b)() * 2 - 1) * levelRove;
+    return { ...seq, sounds: seq.sounds.map((s) => ({ ...s, levelDb: s.levelDb + shift })) };
+  };
   const prelude = (seq: Sequence) => {
     const pre = model.prelude?.(p);
     return pre ? concat(pre, seq, 0) : seq;
@@ -169,7 +187,8 @@ export function judge(model: PrimitiveModel, p: Params): Judged {
       delta,
       format: (v) => model.format?.(v, p) ?? `${disp.to(v).toFixed(disp.decimals)} ${disp.unit}`,
       formatDelta,
-      present: (v, seed) => prelude(model.render(v, p, seed)),
+      present: (v, seed) => prelude(render(v, seed)),
+      grid: model.scale === 'additive' ? model.grid : undefined,
       pairGapSec,
       intervalGapSec,
     };
@@ -211,7 +230,7 @@ export function judge(model: PrimitiveModel, p: Params): Judged {
         hi = Math.min(absBounds[1], absBounds[1] - v);
       }
       const anchor = lo <= hi ? fromUnit(rng(), [lo, hi], model.scale) : fromUnit(0.5, absBounds, model.scale);
-      const pair = concat(model.render(anchor, p, seed), model.render(apply(anchor, v), p, seed), pairGapSec);
+      const pair = concat(render(anchor, seed), render(apply(anchor, v), seed + 101), pairGapSec);
       return prelude(pair);
     },
     pairGapSec,
@@ -261,7 +280,7 @@ export const SOURCE_OPTIONS = [
   { value: 'noise', label: 'Noise' },
 ];
 
-export function sourceParams(defaults: { source: string; frequency: number; levelDb?: number }): StimulusParameter[] {
+export function sourceParams(defaults: { source: string; frequency: number; levelDb?: number; levelRoveDb?: number }): StimulusParameter[] {
   const out: StimulusParameter[] = [
     { id: 'source', label: 'Source', kind: 'select', defaultValue: defaults.source, options: SOURCE_OPTIONS },
     { id: 'frequency', label: 'Frequency', kind: 'number', defaultValue: defaults.frequency, range: { min: 20, max: 20000, step: 1, unit: 'Hz', extendable: true } },
@@ -269,6 +288,9 @@ export function sourceParams(defaults: { source: string; frequency: number; leve
     { id: 'pairGapMs', label: 'Gap between anchor and target', kind: 'number', defaultValue: 600, range: { min: 100, max: 5000, step: 50, unit: 'ms', extendable: true } },
     { id: 'intervalGapMs', label: 'Gap between intervals', kind: 'number', defaultValue: 900, range: { min: 200, max: 5000, step: 50, unit: 'ms', extendable: true } },
   ];
+  if (defaults.levelRoveDb !== undefined) {
+    out.push({ id: 'levelRoveDb', label: 'Random level ±', kind: 'number', defaultValue: defaults.levelRoveDb, range: { min: 0, max: 12, step: 0.5, unit: 'dB', extendable: true }, helpText: 'Random level per sound so loudness is never a clue.' });
+  }
   if (defaults.levelDb !== undefined) {
     out.splice(2, 0, { id: 'levelDb', label: 'Level', kind: 'number', defaultValue: defaults.levelDb, range: { min: -80, max: 0, step: 0.5, unit: 'dBFS', extendable: true } });
   }

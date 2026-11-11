@@ -4,7 +4,7 @@ import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
   formRatio,
-  ratioForParams,
+  deltaPct,
   readProportionParams,
 } from './params';
 
@@ -19,7 +19,8 @@ export function T5Detection({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const difference = ratioForParams(currentValue, p, 1.2);
+  // Unequal trials differ by the staircase Δ.
+  const difference = 1 + deltaPct(currentValue, 20) / 100;
   const canBeEqual = p.lowerBound <= 1;
   const equal = useMemo(
     () => canBeEqual && Math.random() > 0.5,
@@ -27,7 +28,7 @@ export function T5Detection({
   );
   const ratio = equal
     ? 1
-    : Math.max(Math.max(1.1, p.lowerBound), difference);
+    : difference;
   const extentRatio = useMemo(
     () => formRatio(ratio, p),
     [ratio, p.markType, p.ratioDirection]

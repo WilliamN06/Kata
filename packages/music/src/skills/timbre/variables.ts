@@ -1,387 +1,223 @@
-﻿import type { Variable } from '@kata/core';
+﻿import type { StimulusParameter, Variable } from '@kata/core';
+import { mulberry32, num, primitiveDimensions, single, type Params, type PrimitiveModel } from '../../shared/primitives';
+import { BASELINE, synthesize, type TimbreSpec } from './spectrum';
 
 /**
- * Timbre — 19 variables.
+ * Timbre as nine isolated spectral variables (steady-state only — no attack,
+ * vibrato, spectral change over time or reverb). Each variable sets one field of
+ * the baseline spectrum; centroid, spread and loudness are re-fitted so they
+ * never act as side cues. Pitch, level, irregularity pattern and resonance
+ * frequency are roved per sound.
  *
- * Every variable is a numeric range. Categories (shown to the user) are
- * DERIVED from the number via threshold logic in the dispatcher.
- *
- * Conventions:
- *   - Balance variables: -1 (left pole) to +1 (right pole), 0 = neutral
- *   - Percentage variables: 0 to 100 (%)
- *   - Count variables: integer ranges
- *   - Physical variables: dB/oct, Hz, Q (arbitrary ranges but standard units)
- *   - V10 (Formant Pattern) is genuinely categorical — 6 discrete vowels.
- *     No numeric range makes sense there.
+ * Descriptive words (warm, nasal, metallic…) are combinations → integration drills.
  */
 
-const commonStimulusParams = [
-  { id: 'fundamental', label: 'Fundamental Frequency', kind: 'number' as const,
-    defaultValue: 220,
-    range: { min: 20, max: 8000, step: 1, unit: 'Hz', extendable: true } },
-  { id: 'durationMs', label: 'Duration', kind: 'number' as const,
-    defaultValue: 1200,
-    range: { min: 200, max: 5000, step: 100, unit: 'ms', extendable: true } },
-  { id: 'attackMs', label: 'Attack', kind: 'number' as const,
-    defaultValue: 5,
-    range: { min: 0, max: 500, step: 1, unit: 'ms', extendable: true } },
-  { id: 'reverb', label: 'Reverb', kind: 'select' as const,
-    defaultValue: 'none',
-    options: [
-      { value: 'none', label: 'None (dry)' },
-      { value: 'room', label: 'Room (small)' },
-      { value: 'hall', label: 'Hall (large)' },
-    ] },
-];
+type Field = keyof Omit<TimbreSpec, 'f0' | 'seed' | 'resFreq' | 'durationMs' | 'fmax' | 'roughRateHz' | 'resBwOct'>;
 
-const rangeNumber = (
-  id: string, label: string, dflt: number,
-  min: number, max: number, step: number, unit: string
-) => ({
-  id, label, kind: 'range' as const, defaultValue: dflt,
-  range: { min, max, step, unit, extendable: true },
+function spec(p: Params, seed: number, field: Field, value: number): TimbreSpec {
+  const r = mulberry32(seed ^ 0x7f4a7c15);
+  const rove = num(p, 'f0RoveSemis', 3);
+  const base: TimbreSpec = {
+    ...BASELINE,
+    centroid: num(p, 'baseCentroid', BASELINE.centroid),
+    f0: num(p, 'f0', 220) * 2 ** (((r() * 2 - 1) * rove) / 12),
+    // Resonance roved within an octave either side of the centre.
+    resFreq: num(p, 'baseCentroid', BASELINE.centroid) * 2 ** (r() * 2 - 1),
+    seed,
+    durationMs: num(p, 'durationMs', 500),
+  };
+  return { ...base, [field]: value };
+}
+
+function timbreModel(
+  field: Field,
+  m: Omit<PrimitiveModel, 'render' | 'levelRoveDb'>,
+  toSpec: (v: number) => number = (v) => v
+): PrimitiveModel {
+  return {
+    ...m,
+    levelRoveDb: 2,
+    render: (v, p, seed) => {
+      const s = spec(p, seed, field, toSpec(v));
+      return single({
+        durationMs: s.durationMs,
+        source: 'custom',
+        custom: { key: JSON.stringify(s), render: (sr) => synthesize(s, sr) },
+        frequency: 0,
+        levelDb: num(p, 'levelDb', -16),
+        attackMs: num(p, 'rampMs', 25),
+        releaseMs: num(p, 'rampMs', 25),
+      });
+    },
+  };
+}
+
+export const BRIGHTNESS = timbreModel('centroid', {
+  quantity: 'brightness',
+  lowWord: 'darker',
+  highWord: 'brighter',
+  scale: 'ratio',
+  unit: 'Hz',
+  decimals: 0,
+  defaultRange: [400, 3000],
+  delta: { start: 20, min: 0.5, max: 100 },
+  relativeMax: 2,
+  target: 5,
+  format: (v) => `${Math.round(v)} Hz centroid`,
 });
 
-const balance = (id: string, label: string, leftLabel: string, rightLabel: string, dflt = 0) => ({
-  id, label, kind: 'range' as const, defaultValue: dflt,
-  range: { min: -1, max: 1, step: 0.05, unit: `${leftLabel} ← → ${rightLabel}`, extendable: false },
+export const WIDTH = timbreModel('spreadOct', {
+  quantity: 'spectral width',
+  lowWord: 'narrower',
+  highWord: 'fuller',
+  scale: 'additive',
+  unit: 'oct',
+  decimals: 2,
+  defaultRange: [0.3, 1.5],
+  delta: { start: 0.25, min: 0.01, max: 1.2 },
+  relativeMax: 1,
+  target: 0.1,
+  format: (v) => `${v.toFixed(2)} oct spread`,
 });
 
-export const TIMBRE_VARIABLES: Variable[] = [
-  // ================================================================
-  // CLUSTER 1 — SPECTRAL MAGNITUDE DISTRIBUTION
-  // ================================================================
+export const SKEWNESS = timbreModel('skew', {
+  quantity: 'spectral skew',
+  lowWord: 'more weight below',
+  highWord: 'more weight above',
+  scale: 'additive',
+  unit: 'skew',
+  decimals: 2,
+  defaultRange: [-0.5, 0.5],
+  delta: { start: 0.3, min: 0.01, max: 1 },
+  relativeMax: 0.5,
+  target: 0.1,
+});
 
-  // V1 — Partial Relationships (harmonicity 0 = harmonic, 1 = inharmonic)
+export const ODD_EVEN = timbreModel('evenDb', {
+  quantity: 'odd/even balance',
+  lowWord: 'more hollow',
+  highWord: 'fuller',
+  scale: 'additive',
+  unit: 'dB',
+  decimals: 1,
+  defaultRange: [-30, 0],
+  delta: { start: 6, min: 0.25, max: 30 },
+  relativeMax: 20,
+  target: 2,
+  format: (v) => `even partials ${v.toFixed(1)} dB`,
+});
+
+export const IRREGULARITY = timbreModel('irregDb', {
+  quantity: 'irregularity',
+  lowWord: 'smoother',
+  highWord: 'more uneven',
+  scale: 'additive',
+  unit: 'dB',
+  decimals: 1,
+  defaultRange: [0, 6],
+  delta: { start: 2, min: 0.1, max: 6 },
+  relativeMax: 5,
+  target: 1,
+  format: (v) => `${v.toFixed(1)} dB partial deviation`,
+});
+
+export const INHARMONICITY = timbreModel(
+  'inharm',
   {
-    id: 'music:p3-timbre:V1' as any,
-    name: 'Partial Relationships',
-    definition: 'How harmonic vs inharmonic the partials are. 0 = perfect integer multiples. 1 = fully stretched.',
-    unit: 'ratio',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('inharmonicity', 'Inharmonicity', 0, 0, 1, 0.05, '0=harmonic … 1=inharmonic'),
-      rangeNumber('partialCount', 'Partial Count', 24, 2, 128, 1, 'partials'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
+    quantity: 'inharmonicity',
+    lowWord: 'more harmonic',
+    highWord: 'more stretched',
+    scale: 'additive',
+    unit: '×10⁻⁴ B',
+    decimals: 1,
+    defaultRange: [0, 40],
+    delta: { start: 8, min: 0.05, max: 40 },
+    relativeMax: 30,
+    target: 1.5,
+    format: (v) => `B = ${(v / 1e4).toFixed(5)}`,
   },
+  (v) => Math.max(0, v) / 1e4
+);
 
-  // V2 — Partial Spacing (0 = regular, 1 = irregular/clustered/sparse)
-  {
-    id: 'music:p3-timbre:V2' as any,
-    name: 'Partial Spacing',
-    definition: 'How irregularly the partials are distributed. 0 = perfect evenly spaced. 1 = maximally irregular.',
-    unit: 'ratio',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('spacingIrregularity', 'Spacing Irregularity', 0, 0, 1, 0.05, '0=regular … 1=irregular'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
+export const RESONANCE = timbreModel('resGainDb', {
+  quantity: 'resonance',
+  lowWord: 'flatter',
+  highWord: 'more resonant',
+  scale: 'additive',
+  unit: 'dB',
+  decimals: 1,
+  defaultRange: [0, 15],
+  delta: { start: 5, min: 0.25, max: 15 },
+  relativeMax: 12,
+  target: 2,
+  format: (v) => `peak +${v.toFixed(1)} dB`,
+});
 
-  // V3 — Partial Density (0–100%)
+export const NOISINESS = timbreModel('noiseDb', {
+  quantity: 'noisiness',
+  lowWord: 'cleaner',
+  highWord: 'noisier',
+  scale: 'additive',
+  unit: 'dB',
+  decimals: 1,
+  defaultRange: [-40, 10],
+  delta: { start: 6, min: 0.25, max: 30 },
+  relativeMax: 20,
+  target: 3,
+  format: (v) => `noise ${v >= 0 ? '+' : ''}${v.toFixed(1)} dB re tone`,
+});
+
+export const ROUGHNESS = timbreModel(
+  'roughDepth',
   {
-    id: 'music:p3-timbre:V3' as any,
-    name: 'Partial Density',
-    definition: 'How many of the possible partials are present. 0% = sparse (only a few). 100% = dense (all present).',
+    quantity: 'roughness',
+    lowWord: 'smoother',
+    highWord: 'rougher',
+    scale: 'additive',
     unit: '%',
-    defaultValue: 100,
-    variableDimensions: [
-      rangeNumber('partialDensity', 'Density', 100, 0, 100, 5, '% partials present'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
+    decimals: 0,
+    defaultRange: [0, 100],
+    delta: { start: 25, min: 1, max: 100 },
+    relativeMax: 80,
+    target: 10,
+    format: (v) => `${Math.round(v)}% fluctuation at 70 Hz`,
   },
+  (v) => Math.min(1, Math.max(0, v / 100))
+);
 
-  // V4 — Component Magnitudes (-1 = weak upper, +1 = strong upper)
-  {
-    id: 'music:p3-timbre:V4' as any,
-    name: 'Component Magnitudes',
-    definition: 'Balance of energy between lower and upper partials. -1 = upper partials suppressed. +1 = upper partials boosted.',
-    unit: 'balance',
-    defaultValue: 0,
-    variableDimensions: [
-      balance('upperBalance', 'Upper Partial Balance', 'weak upper', 'strong upper'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V5 — Envelope Shape (0 = smooth, 0.5 = peaked, 1 = flat)
-  {
-    id: 'music:p3-timbre:V5' as any,
-    name: 'Spectral Envelope Shape',
-    definition: 'Overall contour. 0 = smooth natural decay. 0.5 = peaked hump. 1 = flat (equal magnitudes).',
-    unit: 'ratio',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('envelopeShapeValue', 'Shape (smooth→peaked→flat)', 0, 0, 1, 0.05, '0=smooth … 0.5=peaked … 1=flat'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V6 — Spectral Tilt (-24 to +12 dB/oct)
-  {
-    id: 'music:p3-timbre:V6' as any,
-    name: 'Spectral Tilt',
-    definition: 'Overall slope of the spectrum. Negative = dark/warm. Positive = bright/thin.',
-    unit: 'dB/octave',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('spectralTilt', 'Spectral Tilt', 0, -24, 12, 1, 'dB/octave'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V7 — Band-Energy Balance (-1 = low, +1 = high)
-  {
-    id: 'music:p3-timbre:V7' as any,
-    name: 'Band-Energy Balance',
-    definition: 'Which frequency band dominates. -1 = low band. 0 = mid/balanced. +1 = high band.',
-    unit: 'balance',
-    defaultValue: 0,
-    variableDimensions: [
-      balance('bandBalanceValue', 'Band Balance', 'low', 'high'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V8 — Resonance Structure (count + freq + gain + Q — all numeric)
-  {
-    id: 'music:p3-timbre:V8' as any,
-    name: 'Resonance Structure',
-    definition: 'Number, position, strength, and width of resonances (peaks).',
-    unit: 'multiple',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('resonanceCount', 'Resonance Count', 3, 0, 8, 1, 'resonances'),
-      rangeNumber('resonanceFreq1', 'Resonance 1 Frequency', 700, 100, 4000, 10, 'Hz'),
-      rangeNumber('resonanceGain', 'Resonance Strength', 12, 0, 30, 1, 'dB'),
-      rangeNumber('resonanceQ', 'Resonance Width (Q)', 3, 0.5, 20, 0.1, 'Q'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V9 — Antiresonance Structure (depth + freq)
-  {
-    id: 'music:p3-timbre:V9' as any,
-    name: 'Antiresonance Structure',
-    definition: 'Depth and frequency of notches (magnitude dips) in the spectrum.',
-    unit: 'multiple',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('antiresonanceDepth', 'Notch Depth', 50, 0, 100, 5, '% reduction'),
-      rangeNumber('antiresonanceFreq', 'Notch Frequency', 750, 100, 4000, 10, 'Hz'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V10 — Formant Pattern (genuinely categorical — 6 vowels)
-  {
-    id: 'music:p3-timbre:V10' as any,
-    name: 'Formant Structure',
-    definition: 'Whether the resonance pattern matches a vowel formant structure.',
-    unit: 'category',
-    defaultValue: 0,
-    variableDimensions: [
-      { id: 'formantPattern', label: 'Formant Pattern', kind: 'select',
-        options: [
-          { value: 'none', label: 'None (no vowel pattern)' },
-          { value: 'a', label: 'Vowel /a/ (F1≈730, F2≈1090)' },
-          { value: 'e', label: 'Vowel /e/ (F1≈530, F2≈1840)' },
-          { value: 'i', label: 'Vowel /i/ (F1≈270, F2≈2290)' },
-          { value: 'o', label: 'Vowel /o/ (F1≈570, F2≈840)' },
-          { value: 'u', label: 'Vowel /u/ (F1≈300, F2≈870)' },
-        ], defaultValue: 'none' },
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // ================================================================
-  // CLUSTER 2 — SPECTRAL FINE STRUCTURE
-  // ================================================================
-
-  // V11 — Envelope Deviation (0–100%)
-  {
-    id: 'music:p3-timbre:V11' as any,
-    name: 'Envelope Deviation',
-    definition: 'How much individual partial magnitudes deviate from a smooth envelope.',
-    unit: '%',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('envelopeDeviation', 'Deviation', 40, 0, 100, 5, '%'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V12 — Peakiness (0–100%)
-  {
-    id: 'music:p3-timbre:V12' as any,
-    name: 'Peakiness',
-    definition: 'How peaked vs smooth the spectrum contour is.',
-    unit: '%',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('peakiness', 'Peakiness', 50, 0, 100, 5, '%'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V13 — Micro-Structure (0 = regular, 0.5 = jittered, 1 = comb)
-  {
-    id: 'music:p3-timbre:V13' as any,
-    name: 'Partial Micro-Structure',
-    definition: 'Fine-grained pattern: 0 = regular. 0.5 = jittered. 1 = comb-like.',
-    unit: 'ratio',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('microStructureValue', 'Micro-Structure', 0, 0, 1, 0.05, '0=regular … 0.5=jittered … 1=comb'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // V14 — Fine-Structure Density (0–8 sub-partials)
-  {
-    id: 'music:p3-timbre:V14' as any,
-    name: 'Fine-Structure Density',
-    definition: 'Number of sub-partials added around each main partial.',
-    unit: 'count',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('fineStructureDensity', 'Sub-Partials per Partial', 0, 0, 8, 1, 'sub-partials'),
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
-
-  // ================================================================
-  // CLUSTER 3 — APERIODIC / NOISE COMPONENT
-  // ================================================================
-
-  // V15 — HNR (0–100% tonal)
-  {
-    id: 'music:p3-timbre:V15' as any,
-    name: 'Harmonic-to-Noise Ratio',
-    definition: 'Proportion of the sound that is tonal vs noisy.',
-    unit: '%',
-    defaultValue: 100,
-    variableDimensions: [
-      rangeNumber('hnr', 'HNR (tonal %)', 100, 0, 100, 5, '% tonal'),
-    ],
-    stimulusParameters: [
-      ...commonStimulusParams,
-      { id: 'noiseColour', label: 'Noise Colour (constant)', kind: 'select',
-        defaultValue: 'white',
-        options: [
-          { value: 'white', label: 'White' },
-          { value: 'pink', label: 'Pink' },
-          { value: 'brown', label: 'Brown' },
-        ] },
-    ],
-    visualisation: 'both',
-  },
-
-  // V16 — Noise Colour (-1 = brown, 0 = pink, +1 = white)
-  {
-    id: 'music:p3-timbre:V16' as any,
-    name: 'Noise Colour',
-    definition: 'Spectral slope of the noise. -1 = brown (steep, rumble). 0 = pink (natural). +1 = white (flat hiss).',
-    unit: 'slope',
-    defaultValue: 1,
-    variableDimensions: [
-      rangeNumber('noiseColourValue', 'Colour (-1=brown, 0=pink, +1=white)', 1, -1, 1, 0.05, 'brown ← → white'),
-      { id: 'bandLimited', label: 'Band-Limited', kind: 'select',
-        options: [{ value: 'off', label: 'Off (full spectrum)' }, { value: 'on', label: 'On (narrow band)' }],
-        defaultValue: 'off' },
-    ],
-    stimulusParameters: [
-      ...commonStimulusParams,
-      { id: 'noiseAmount', label: 'Noise Amount (constant)', kind: 'number',
-        defaultValue: 100, range: { min: 50, max: 100, step: 5, unit: '%', extendable: false } },
-    ],
-    visualisation: 'both',
-  },
-
-  // V17 — Noise Band Location (-1 = low, 0 = mid, +1 = high)
-  {
-    id: 'music:p3-timbre:V17' as any,
-    name: 'Noise Band Location',
-    definition: 'Where in the frequency spectrum the noise sits. -1 = low, 0 = mid, +1 = high.',
-    unit: 'balance',
-    defaultValue: 0,
-    variableDimensions: [
-      balance('noiseBandValue', 'Band Location', 'low', 'high'),
-    ],
-    stimulusParameters: [
-      ...commonStimulusParams,
-      { id: 'noiseColour', label: 'Noise Colour (constant)', kind: 'select',
-        defaultValue: 'white',
-        options: [
-          { value: 'white', label: 'White' },
-          { value: 'pink', label: 'Pink' },
-          { value: 'brown', label: 'Brown' },
-        ] },
-      { id: 'noiseAmount', label: 'Noise Amount (constant)', kind: 'number',
-        defaultValue: 100, range: { min: 50, max: 100, step: 5, unit: '%', extendable: false } },
-    ],
-    visualisation: 'both',
-  },
-
-  // V18 — Noisiness Fraction (0–100%)
-  {
-    id: 'music:p3-timbre:V18' as any,
-    name: 'Noisiness Fraction',
-    definition: 'How much of the sound is noise. 0% = pure tonal. 100% = pure noise.',
-    unit: '%',
-    defaultValue: 0,
-    variableDimensions: [
-      rangeNumber('noisinessFraction', 'Noise Fraction', 50, 0, 100, 5, '% noise'),
-    ],
-    stimulusParameters: [
-      ...commonStimulusParams,
-      { id: 'noiseColour', label: 'Noise Colour (constant)', kind: 'select',
-        defaultValue: 'white',
-        options: [
-          { value: 'white', label: 'White' },
-          { value: 'pink', label: 'Pink' },
-          { value: 'brown', label: 'Brown' },
-        ] },
-    ],
-    visualisation: 'both',
-  },
-
-  // ================================================================
-  // CLUSTER 4 — PHASE / COHERENCE
-  // ================================================================
-
-  // V19 — Phase Coherence (-1 = anti-aligned, 0 = random, +1 = aligned)
-  {
-    id: 'music:p3-timbre:V19' as any,
-    name: 'Phase Coherence',
-    definition: 'How correlated partial phases are. -1 = all anti-aligned (cancellation). 0 = random. +1 = all aligned.',
-    unit: 'coherence',
-    defaultValue: 1,
-    variableDimensions: [
-      balance('phaseCoherence', 'Phase Coherence', 'anti-aligned', 'aligned'),
-      { id: 'cancellationMode', label: 'Cancellation Mode', kind: 'select',
-        options: [
-          { value: 'none', label: 'None (no cancellation)' },
-          { value: 'partial', label: 'Partial (some partials cancelled)' },
-          { value: 'full', label: 'Full (odd partials cancelled)' },
-        ], defaultValue: 'none' },
-    ],
-    stimulusParameters: commonStimulusParams,
-    visualisation: 'both',
-  },
+const timbreStimulus: StimulusParameter[] = [
+  { id: 'f0', label: 'Pitch', kind: 'number', defaultValue: 220, range: { min: 40, max: 1000, step: 1, unit: 'Hz', extendable: true } },
+  { id: 'f0RoveSemis', label: 'Random pitch ±', kind: 'number', defaultValue: 3, range: { min: 0, max: 12, step: 0.5, unit: 'semitones', extendable: true }, helpText: 'Pitch varies per sound so you judge the spectrum, not one memorised tone.' },
+  { id: 'baseCentroid', label: 'Baseline brightness', kind: 'number', defaultValue: 1000, range: { min: 200, max: 5000, step: 10, unit: 'Hz', extendable: true } },
+  { id: 'levelDb', label: 'Level', kind: 'number', defaultValue: -16, range: { min: -60, max: 0, step: 0.5, unit: 'dBFS', extendable: true } },
+  { id: 'levelRoveDb', label: 'Random level ±', kind: 'number', defaultValue: 2, range: { min: 0, max: 12, step: 0.5, unit: 'dB', extendable: true } },
+  { id: 'durationMs', label: 'Duration', kind: 'number', defaultValue: 500, range: { min: 100, max: 3000, step: 10, unit: 'ms', extendable: true } },
+  { id: 'rampMs', label: 'Fade in/out', kind: 'number', defaultValue: 25, range: { min: 5, max: 200, step: 1, unit: 'ms', extendable: true } },
+  { id: 'pairGapMs', label: 'Gap between anchor and target', kind: 'number', defaultValue: 600, range: { min: 100, max: 5000, step: 50, unit: 'ms', extendable: true } },
+  { id: 'intervalGapMs', label: 'Gap between intervals', kind: 'number', defaultValue: 900, range: { min: 200, max: 5000, step: 50, unit: 'ms', extendable: true } },
 ];
+
+const DEFS: Array<{ n: number; name: string; definition: string; model: PrimitiveModel }> = [
+  { n: 1, name: 'Brightness', definition: 'Where spectral energy is centred (centroid). Dark ↔ bright.', model: BRIGHTNESS },
+  { n: 2, name: 'Spectral Width', definition: 'How widely energy spreads around the centre, with brightness held. Narrow/thin ↔ full.', model: WIDTH },
+  { n: 3, name: 'Spectral Skew', definition: 'Whether energy leans below or above the centre, with brightness and width held. Advanced; weaker evidence.', model: SKEWNESS },
+  { n: 4, name: 'Odd/Even Balance', definition: 'Level of even partials relative to odd ones. Full ↔ hollow (clarinet-like).', model: ODD_EVEN },
+  { n: 5, name: 'Irregularity', definition: 'How unevenly partial levels deviate from a smooth curve. The pattern changes every sound.', model: IRREGULARITY },
+  { n: 6, name: 'Inharmonicity', definition: 'How far partials are stretched away from whole-number multiples. Fused ↔ bell/metallic.', model: INHARMONICITY },
+  { n: 7, name: 'Resonance', definition: 'How far one resonant peak stands above the curve. Its frequency changes every sound. Neutral ↔ nasal/honky.', model: RESONANCE },
+  { n: 8, name: 'Noisiness', definition: 'Noise power relative to the tone, noise shaped like the tone. Clean ↔ breathy.', model: NOISINESS },
+  { n: 9, name: 'Roughness', definition: 'Depth of fast (70 Hz) amplitude fluctuation, heard as texture not rhythm. Smooth ↔ rough.', model: ROUGHNESS },
+];
+
+export const TIMBRE_VARIABLES: Variable[] = DEFS.map((d) => ({
+  id: `music:p3-timbre:S${d.n}` as any,
+  name: d.name,
+  definition: d.definition,
+  unit: d.model.unit,
+  defaultValue: d.model.delta.start,
+  variableDimensions: primitiveDimensions(d.model),
+  stimulusParameters: timbreStimulus,
+  visualisation: 'spectrum',
+}));
+
+export const TIMBRE_MODELS = DEFS.map((d, i) => ({ variable: TIMBRE_VARIABLES[i]!, model: d.model }));

@@ -7,7 +7,13 @@ import { getAudioContext, getMasterBus } from '@kata/audio';
  * so timing drills are not contaminated by JS timer jitter.
  */
 
-export type SourceKind = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'noise' | 'click';
+export type SourceKind = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'noise' | 'click' | 'custom';
+
+/** Pre-rendered mono samples, cached by key (used by timbre). */
+export interface CustomSource {
+  key: string;
+  render: (sampleRate: number) => Float32Array;
+}
 
 export interface SoundSpec {
   /** Seconds from the start of the sequence. */
@@ -32,6 +38,12 @@ export interface SoundSpec {
   roomDecaySec?: number;
   /** Seed for the room impulse, so both intervals of a trial share one room. */
   roomSeed?: number;
+  /** Samples for source 'custom'. */
+  custom?: CustomSource;
+  /** Play in one ear only (headphone check). */
+  channel?: 'left' | 'right';
+  /** Flip the right channel's polarity (headphone check). */
+  invertRight?: boolean;
 }
 
 export interface Sequence {
@@ -128,7 +140,27 @@ export interface Playback {
   endsAt: number;
 }
 
+const customCache = new Map<string, AudioBuffer>();
+
+function customBuffer(ctx: AudioContext, c: CustomSource): AudioBuffer {
+  const key = `${c.key}|${ctx.sampleRate}`;
+  let buf = customCache.get(key);
+  if (!buf) {
+    const data = c.render(ctx.sampleRate);
+    buf = ctx.createBuffer(1, Math.max(1, data.length), ctx.sampleRate);
+    buf.getChannelData(0).set(data);
+    if (customCache.size > 64) customCache.clear();
+    customCache.set(key, buf);
+  }
+  return buf;
+}
+
 function makeSource(ctx: AudioContext, s: SoundSpec, durSec: number): AudioScheduledSourceNode {
+  if (s.source === 'custom' && s.custom) {
+    const b = ctx.createBufferSource();
+    b.buffer = customBuffer(ctx, s.custom);
+    return b;
+  }
   if (s.source === 'noise') {
     const n = ctx.createBufferSource();
     n.buffer = noiseBuffer(ctx, durSec + 0.05);
@@ -217,9 +249,9 @@ function scheduleSound(ctx: AudioContext, dest: AudioNode, s: SoundSpec, t0: num
   // Interaural level difference, split symmetrically so overall level is unchanged.
   const ild = s.ildDb ?? 0;
   const lg = ctx.createGain();
-  lg.gain.value = dbToGain(-ild / 2);
+  lg.gain.value = s.channel === 'right' ? 0 : dbToGain(-ild / 2);
   const rg = ctx.createGain();
-  rg.gain.value = dbToGain(ild / 2);
+  rg.gain.value = (s.channel === 'left' ? 0 : dbToGain(ild / 2)) * (s.invertRight ? -1 : 1);
   left.connect(lg);
   right.connect(rg);
   live.push(lg, rg);
@@ -278,6 +310,8 @@ export function playSequence(seq: Sequence, leadSec = 0.08): Playback {
   current?.stop();
   const ctx = getAudioContext();
   const dest = getMasterBus();
+  // Render custom buffers first so slow synthesis can't push the start late.
+  for (const s of seq.sounds) if (s.source === 'custom' && s.custom) customBuffer(ctx, s.custom);
   const t0 = ctx.currentTime + leadSec;
   const live: AudioNode[] = [];
   for (const s of seq.sounds) scheduleSound(ctx, dest, s, t0, live);

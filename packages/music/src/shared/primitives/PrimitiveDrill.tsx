@@ -3,6 +3,7 @@ import type { DrillProps } from '@kata/core';
 import { getAudioContext, resumeAudio } from '@kata/audio';
 import { WaveformDisplay } from '@kata/visualisation';
 import { startBackgroundNoise, stopBackgroundNoise } from '../SoundfontLoader';
+import { HeadphoneCheck, headphonesVerified } from './HeadphoneCheck';
 import { concat, getPrimitiveAnalyser, mulberry32, playSequence, stopAll, type Sequence } from './audio';
 import {
   clamp,
@@ -35,6 +36,7 @@ export function PrimitiveDrill(props: DrillProps) {
     [J]
   );
   const seed = useMemo(() => Math.floor(Math.random() * 2 ** 31), []);
+  const [phonesOk, setPhonesOk] = useState(() => headphonesVerified());
 
   useBackgroundNoise();
   useEffect(() => () => stopAll(), []);
@@ -42,6 +44,8 @@ export function PrimitiveDrill(props: DrillProps) {
   if (!model || !J) {
     return <div className="p-8 text-neutral-400">No primitive model registered for {variable.id}.</div>;
   }
+
+  if (model.headphones && !phonesOk) return <HeadphoneCheck onPass={() => setPhonesOk(true)} />;
 
   const shared: TaskProps = {
     J,
@@ -498,7 +502,12 @@ function Identification({ J, delta, seed, onAnswer, showVisualisation }: TaskPro
     const rng = mulberry32(seed);
     const half = (ID_N - 1) / 2;
     const centre = rove(J.bounds, rng, delta, J.scale, half, half);
-    const options = Array.from({ length: ID_N }, (_, i) => step(centre, delta, i - half, J.scale));
+    let options = Array.from({ length: ID_N }, (_, i) => step(centre, delta, i - half, J.scale));
+    // Land options on the grid (e.g. whole semitones) when there is one.
+    if (J.grid) {
+      const shift = Math.round(options[0]! / J.grid) * J.grid - options[0]!;
+      options = options.map((o) => o + shift);
+    }
     const answer = Math.floor(rng() * ID_N);
     return { options, answer };
   }, [J, delta, seed]);

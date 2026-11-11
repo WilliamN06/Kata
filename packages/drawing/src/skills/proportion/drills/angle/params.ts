@@ -69,3 +69,26 @@ export function angleDifference(a: number, b: number): number {
   const diff = Math.abs(a - b);
   return diff > 180 ? 360 - diff : diff;
 }
+
+// ── Staircase on the difference ──────────────────────────────
+// The staircase value is the angular difference Δ in degrees; the angle itself is roved.
+
+export function deltaDeg(currentValue: number, fallback = 8): number {
+  const v = Number(currentValue);
+  return Math.min(45, Math.max(0.25, Number.isFinite(v) && v > 0 ? v : fallback));
+}
+
+export function trialAngle(variableParams: Record<string, string | number>): number {
+  const lo = Number.isFinite(Number(variableParams.angleMin)) ? Number(variableParams.angleMin) : 5;
+  const hi = Number.isFinite(Number(variableParams.angleMax)) ? Number(variableParams.angleMax) : 175;
+  return Math.min(lo, hi) + Math.random() * Math.abs(hi - lo);
+}
+
+/** For categorisation: equal chance of acute, right, obtuse and reflex. */
+export function categoryAngle(): number {
+  const pick = Math.floor(Math.random() * 4);
+  if (pick === 0) return 10 + Math.random() * 70;
+  if (pick === 1) return 90;
+  if (pick === 2) return 100 + Math.random() * 70;
+  return 190 + Math.random() * 160;
+}

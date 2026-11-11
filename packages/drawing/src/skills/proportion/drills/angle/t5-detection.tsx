@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { AngleStage } from '../../stimuli/AngleStage';
-import { readAngleParams, referenceDegrees } from './params';
+import { readAngleParams, referenceDegrees, deltaDeg } from './params';
 
 export function AngleT5Detection({
   currentValue,
@@ -19,15 +19,12 @@ export function AngleT5Detection({
 
   const trial = useMemo(() => {
     const aligned = Math.random() > 0.5;
-    const stairScale = Math.max(0.1, Math.min(2, Math.abs(currentValue) / 45));
-    const offset = Math.max(
-      0.75,
-      Math.min(20, params.comparisonOffset * stairScale)
-    );
+    const offset = deltaDeg(currentValue);
     const direction = Math.random() > 0.5 ? 1 : -1;
     const angle = aligned ? 0 : direction * offset;
     return { aligned, angle };
-  }, [currentValue, params.comparisonOffset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handle = (saidAligned: boolean) => {
     if (answered) return;

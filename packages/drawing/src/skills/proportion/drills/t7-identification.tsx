@@ -4,8 +4,9 @@ import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
   formRatio,
-  ratioForParams,
-  ratioOptions,
+  deltaPct,
+  spacedRatioOptions,
+  trialRatio,
   readProportionParams,
 } from './params';
 
@@ -20,7 +21,9 @@ export function T7Identification({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const ratio = ratioForParams(currentValue, p);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const ratio = useMemo(() => trialRatio(p), []);
+  const dPct = deltaPct(currentValue);
   const extentRatio = useMemo(
     () => formRatio(ratio, p),
     [ratio, p.markType, p.ratioDirection]
@@ -28,19 +31,15 @@ export function T7Identification({
 
   const options = useMemo(
     () =>
-      ratioOptions(
-        ratio,
-        4,
-        p.lowerBound,
-        p.upperBound
-      ),
-    [ratio, p.lowerBound, p.upperBound]
+      spacedRatioOptions(ratio, dPct),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ratio]
   );
 
   const handle = (choice: number) => {
     if (answered) return;
     setAnswered(true);
-    const correct = Math.abs(choice - ratio) < 0.02;
+    const correct = Math.abs(choice - ratio) < 1e-9;
     setTimeout(
       () =>
         onAnswer({

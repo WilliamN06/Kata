@@ -3,9 +3,11 @@ import type { DrillProps } from '@kata/core';
 import { ColourChip } from '../stimuli/ColourChip';
 import { randomHue, randomChroma, randomLStar } from '../utils';
 
-export function T4Matching({ variable, variableParams, stimulusParams, onAnswer }: DrillProps) {
+export function T4Matching({ variable, variableParams, currentValue, stimulusParams, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
+  // Fixed per trial: re-rendering (e.g. after answering) must not change the stimulus.
+  const rnd = useMemo(() => ({ hue: randomHue(), chroma: randomChroma(), l: randomLStar(), order: [0, 1, 2, 3].sort(() => Math.random() - 0.5) }), []);
 
   const varId = variable.id.split(':').pop() || 'V1';
   const surfaceSize = Math.floor((Number(stimulusParams.surfaceSize) || 160) * 0.5);
@@ -14,41 +16,41 @@ export function T4Matching({ variable, variableParams, stimulusParams, onAnswer 
   let options: Array<{ hue: number; chroma: number; lStar: number; correct: boolean }> = [];
 
   if (varId === 'V1') {
-    targetHue = randomHue();
+    targetHue = rnd.hue;
     targetChroma = Number(stimulusParams.chroma) || 80;
     targetL = Number(stimulusParams.lStar) || 55;
-    const offset = Number(variableParams.hueRange) || 30;
+    const offset = (Number(currentValue) || Number(variableParams.hueRange) || 30);
     const opts = [
       { hue: targetHue, chroma: targetChroma, lStar: targetL, correct: true },
       { hue: (targetHue + offset) % 360, chroma: targetChroma, lStar: targetL, correct: false },
       { hue: (targetHue - offset + 360) % 360, chroma: targetChroma, lStar: targetL, correct: false },
       { hue: (targetHue + offset * 2) % 360, chroma: targetChroma, lStar: targetL, correct: false },
     ];
-    options = opts.sort(() => Math.random() - 0.5);
+    options = rnd.order.map((i) => opts[i]!);
   } else if (varId === 'V2') {
-    targetChroma = randomChroma();
+    targetChroma = rnd.chroma;
     targetHue = Number(stimulusParams.hue) || 30;
     targetL = Number(stimulusParams.lStar) || 55;
-    const offset = Number(variableParams.chromaRange) || 20;
+    const offset = (Number(currentValue) || Number(variableParams.chromaRange) || 20);
     const opts = [
       { hue: targetHue, chroma: targetChroma, lStar: targetL, correct: true },
       { hue: targetHue, chroma: Math.max(0, Math.min(100, targetChroma + offset)), lStar: targetL, correct: false },
       { hue: targetHue, chroma: Math.max(0, Math.min(100, targetChroma - offset)), lStar: targetL, correct: false },
       { hue: targetHue, chroma: Math.max(0, Math.min(100, targetChroma + offset * 2)), lStar: targetL, correct: false },
     ];
-    options = opts.sort(() => Math.random() - 0.5);
+    options = rnd.order.map((i) => opts[i]!);
   } else {
-    targetL = randomLStar();
+    targetL = rnd.l;
     targetHue = Number(stimulusParams.hue) || 0;
     targetChroma = Number(stimulusParams.chroma) || 0;
-    const offset = Number(variableParams.valueRange) || 5;
+    const offset = (Number(currentValue) || Number(variableParams.valueRange) || 5);
     const opts = [
       { hue: targetHue, chroma: targetChroma, lStar: targetL, correct: true },
       { hue: targetHue, chroma: targetChroma, lStar: Math.max(0, Math.min(100, targetL + offset)), correct: false },
       { hue: targetHue, chroma: targetChroma, lStar: Math.max(0, Math.min(100, targetL - offset)), correct: false },
       { hue: targetHue, chroma: targetChroma, lStar: Math.max(0, Math.min(100, targetL + offset * 2)), correct: false },
     ];
-    options = opts.sort(() => Math.random() - 0.5);
+    options = rnd.order.map((i) => opts[i]!);
   }
 
   const handle = (idx: number) => {

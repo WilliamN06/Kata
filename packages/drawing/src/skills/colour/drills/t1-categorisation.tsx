@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react';
+﻿import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ColourChip } from '../stimuli/ColourChip';
 import { hueToFamily, chromaToCategory, lStarToCategory, randomHue, randomChroma, randomLStar } from '../utils';
@@ -6,6 +6,8 @@ import { hueToFamily, chromaToCategory, lStarToCategory, randomHue, randomChroma
 export function T1Categorisation({ variable, stimulusParams, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
+  // Fixed per trial: re-rendering (e.g. after answering) must not change the stimulus.
+  const rnd = useMemo(() => ({ hue: randomHue(), chroma: randomChroma(), l: randomLStar(), order: [0, 1, 2, 3].sort(() => Math.random() - 0.5) }), []);
 
   const varId = variable.id.split(':').pop() || 'V1';
   const surfaceSize = Number(stimulusParams.surfaceSize) || 160;
@@ -24,21 +26,21 @@ export function T1Categorisation({ variable, stimulusParams, onAnswer }: DrillPr
 
   if (varId === 'V1') {
     // Hue categorisation
-    hue = randomHue();
+    hue = rnd.hue;
     chroma = Number(stimulusParams.chroma) || 80;
     lStar = Number(stimulusParams.lStar) || 55;
     categories = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'violet', 'magenta'];
     correct = hueToFamily(hue);
   } else if (varId === 'V2') {
     // Chroma categorisation
-    chroma = randomChroma();
+    chroma = rnd.chroma;
     hue = Number(stimulusParams.hue) || 30;
     lStar = Number(stimulusParams.lStar) || 55;
     categories = ['grey', 'muted', 'moderate', 'vivid'];
     correct = chromaToCategory(chroma);
   } else {
     // Value categorisation
-    lStar = randomLStar();
+    lStar = rnd.l;
     hue = Number(stimulusParams.hue) || 0;
     chroma = Number(stimulusParams.chroma) || 0;
     categories = ['very dark (L* < 10)', 'dark (L* 10–30)', 'low mid (L* 30–50)', 'high mid (L* 50–70)', 'light (L* 70–90)', 'very light (L* > 90)'];

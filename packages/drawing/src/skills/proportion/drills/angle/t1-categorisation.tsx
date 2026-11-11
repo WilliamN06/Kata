@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { AngleStage } from '../../stimuli/AngleStage';
-import { classifyAngle, readAngleParams, resolveAngle } from './params';
+import { categoryAngle, classifyAngle, readAngleParams } from './params';
 
 const CATEGORIES = ['acute', 'right', 'obtuse', 'reflex'] as const;
 
@@ -14,7 +14,7 @@ export function AngleT1Categorisation({
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
   const params = readAngleParams(variableParams, stimulusParams);
-  const angle = resolveAngle(currentValue);
+  const angle = useMemo(() => categoryAngle(), []);
   const correct = classifyAngle(angle);
 
   const handle = (choice: (typeof CATEGORIES)[number]) => {

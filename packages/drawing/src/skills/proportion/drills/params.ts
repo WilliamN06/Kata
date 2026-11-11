@@ -141,3 +141,27 @@ export function formPropsFromParams(
     showReferenceUnit: p.referenceUnit === 'present',
   };
 }
+
+// ── Staircase on the difference ──────────────────────────────
+// The staircase value is the difference Δ (% of the ratio), never the ratio itself.
+// The ratio is roved per trial within [lowerBound, upperBound].
+
+export function deltaPct(currentValue: number, fallback = 25): number {
+  const v = Number(currentValue);
+  return Math.min(100, Math.max(0.25, Number.isFinite(v) && v > 0 ? v : fallback));
+}
+
+/** Random whole-number ratio inside the bounds (the design keeps base ratios whole). */
+export function trialRatio(p: ReturnType<typeof readProportionParams>): number {
+  const lo = Math.max(1, Math.ceil(p.lowerBound));
+  const hi = Math.max(lo, Math.floor(p.upperBound));
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+/** count options spaced by Δ% around (and including) the target, shuffled. */
+export function spacedRatioOptions(target: number, delta: number, count = 4): number[] {
+  const steps = [-2, -1, 1, 2].sort(() => Math.random() - 0.5).slice(0, count - 1);
+  const opts = [target, ...steps.map((k) => target * Math.pow(1 + delta / 100, k))]
+    .map((v) => Math.max(0.05, Number(v.toFixed(3))));
+  return opts.sort(() => Math.random() - 0.5);
+}

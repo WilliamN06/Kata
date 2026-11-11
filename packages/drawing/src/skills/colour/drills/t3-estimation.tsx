@@ -1,11 +1,13 @@
-﻿import { useRef, useState } from 'react';
+﻿import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ColourChip } from '../stimuli/ColourChip';
 import { randomHue, randomChroma, randomLStar } from '../utils';
 
-export function T3Estimation({ variable, variableParams, stimulusParams, onAnswer }: DrillProps) {
+export function T3Estimation({ variable, variableParams, currentValue, stimulusParams, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
+  // Fixed per trial: re-rendering (e.g. after answering) must not change the stimulus.
+  const rnd = useMemo(() => ({ hue: randomHue(), chroma: randomChroma(), l: randomLStar(), order: [0, 1, 2, 3].sort(() => Math.random() - 0.5) }), []);
   const [guess, setGuess] = useState(50);
 
   const varId = variable.id.split(':').pop() || 'V1';
@@ -16,23 +18,23 @@ export function T3Estimation({ variable, variableParams, stimulusParams, onAnswe
   let tolerance = 0;
 
   if (varId === 'V1') {
-    hue = randomHue();
+    hue = rnd.hue;
     chroma = Number(stimulusParams.chroma) || 80;
     lStar = Number(stimulusParams.lStar) || 55;
     min = 0; max = 360; unit = '°'; question = 'Estimate the hue in degrees:';
-    tolerance = Number(variableParams.hueRange) || 30;
+    tolerance = (Number(currentValue) || Number(variableParams.hueRange) || 30);
   } else if (varId === 'V2') {
-    chroma = randomChroma();
+    chroma = rnd.chroma;
     hue = Number(stimulusParams.hue) || 30;
     lStar = Number(stimulusParams.lStar) || 55;
     min = 0; max = 100; unit = '%'; question = 'Estimate the chroma (%):';
-    tolerance = Number(variableParams.chromaRange) || 20;
+    tolerance = (Number(currentValue) || Number(variableParams.chromaRange) || 20);
   } else {
-    lStar = randomLStar();
+    lStar = rnd.l;
     hue = Number(stimulusParams.hue) || 0;
     chroma = Number(stimulusParams.chroma) || 0;
     min = 0; max = 100; unit = 'L*'; question = 'Estimate the value (L*):';
-    tolerance = Number(variableParams.valueRange) || 5;
+    tolerance = (Number(currentValue) || Number(variableParams.valueRange) || 5);
   }
 
   const target = varId === 'V1' ? hue : varId === 'V2' ? chroma : lStar;

@@ -34,6 +34,15 @@ export type VariableId =
   | 'music:p3-timbre:V8'
   | 'music:p3-timbre:V9'
   | 'music:p3-timbre:V10'
+  | 'music:p3-timbre:S1'
+  | 'music:p3-timbre:S2'
+  | 'music:p3-timbre:S3'
+  | 'music:p3-timbre:S4'
+  | 'music:p3-timbre:S5'
+  | 'music:p3-timbre:S6'
+  | 'music:p3-timbre:S7'
+  | 'music:p3-timbre:S8'
+  | 'music:p3-timbre:S9'
   | 'music:p4-time:V1'
   | 'music:p4-time:V2'
   | 'music:p4-time:V3'
@@ -144,6 +153,12 @@ export interface TrialResult {
   variableParams: Record<string, string | number>;
   taskConditions: TaskConditions;
   rating?: PerceptualRating;
+  /** Staircase difference (delta) this trial was run at. */
+  delta?: number;
+  /** Running staircase threshold after this trial (null until enough reversals). */
+  threshold?: number | null;
+  /** Identifies the drill session this trial belongs to. */
+  sessionId?: string;
 }
 
 export interface DrillState {
@@ -162,6 +177,13 @@ export interface VariableState {
   threshold: number | null;
   trialCount: number;
   lastPracticed: string | null;
+  /** Staircase threshold per task type: latest value and one entry per session. */
+  thresholds?: Record<string, ThresholdRecord>;
+}
+
+export interface ThresholdRecord {
+  latest: number;
+  history: Array<{ sessionId: string; value: number; at: string }>;
 }
 
 export interface ProgressSnapshot {

@@ -1,187 +1,159 @@
 ﻿import type { Variable } from '@kata/core';
-import { SOUND_SOURCE_OPTIONS } from '../../shared/sound-source';
+import {
+  concat,
+  mulberry32,
+  num,
+  primitiveDimensions,
+  single,
+  sourceFrom,
+  sourceParams,
+  type Params,
+  type PrimitiveModel,
+  type Sequence,
+} from '../../shared/primitives';
 
 /**
- * Pitch subskill — 3 variables:
- *   V1 Pitch Value  — detect a single frequency (Hz)
- *   V2 Interval     — detect interval size in SEMITONES (0-12)
- *   V3 Chord        — recognise chord type from simultaneous tones
- *
- * V2 and V3 never touch Hz. V1 is the only Hz variable.
+ * Pitch has two isolatable primitives:
+ *   - pitch height: where a single tone sits (cents re A4)
+ *   - interval: the distance between two tones (cents, semitone categories)
+ * Chords are intervals sounding together and belong in integration drills.
+ * Tones are synthesised with a fixed waveform so timbre never varies, and
+ * level is roved so loudness (which changes with frequency) is not a cue.
  */
 
-// -----------------------------------------------------------------
-// NOTE CATALOGUE — dropdown options for root note
-// -----------------------------------------------------------------
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const centsToHz = (c: number) => 440 * 2 ** (c / 1200);
+const NOTES = ['A', 'A♯', 'B', 'C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯'];
 
-function buildNoteOptions() {
-  const options: Array<{ value: string; label: string }> = [];
-  // Octaves 1 through 7 (C1 is ~32 Hz, C7 is ~2093 Hz)
-  for (let octave = 1; octave <= 7; octave++) {
-    for (const name of NOTE_NAMES) {
-      const freq = 440 * Math.pow(2, ((octave + 1) * 12 + NOTE_NAMES.indexOf(name) - 69) / 12);
-      if (freq >= 20 && freq <= 8000) {
-        options.push({ value: `${name}${octave}`, label: `${name}${octave} (${freq.toFixed(0)} Hz)` });
-      }
-    }
-  }
-  return options;
+function noteName(cents: number): string {
+  const semis = Math.round(cents / 100);
+  const off = Math.round(cents - semis * 100);
+  const idx = ((semis % 12) + 12) % 12;
+  const octave = 4 + Math.floor((semis + 9) / 12);
+  return `${NOTES[idx]}${octave}${off ? ` ${off > 0 ? '+' : ''}${off}¢` : ''}`;
 }
 
-const NOTE_OPTIONS = buildNoteOptions();
+const INTERVALS = ['P1', 'm2', 'M2', 'm3', 'M3', 'P4', 'TT', 'P5', 'm6', 'M6', 'm7', 'M7', 'P8'];
+function intervalName(cents: number): string {
+  const semis = Math.round(cents / 100);
+  const off = Math.round(cents - semis * 100);
+  const base = semis >= 0 && semis <= 12 ? INTERVALS[semis] : `${semis} st`;
+  return `${base}${off ? ` ${off > 0 ? '+' : ''}${off}¢` : ''}`;
+}
 
-// -----------------------------------------------------------------
-// COMMON STIMULUS PARAMETERS — shared by all 3 variables
-// -----------------------------------------------------------------
-const commonStimulusParams = [
-  // Root note dropdown + random toggle + random range
-  { id: 'rootNote', label: 'Root Note', kind: 'select' as const,
-    defaultValue: 'A4',
-    options: NOTE_OPTIONS,
-    helpText: 'The base pitch. A4 = 440 Hz.' },
-  { id: 'randomRoot', label: 'Randomise Root', kind: 'select' as const,
-    defaultValue: 'off',
-    options: [
-      { value: 'off', label: 'Off (use root note above)' },
-      { value: 'on', label: 'On (pick a random root each trial)' },
-    ] },
-  { id: 'randomRootMin', label: 'Random Root Min', kind: 'select' as const,
-    defaultValue: 'C3',
-    options: NOTE_OPTIONS,
-    helpText: 'When Randomise Root = On, roots are picked from this range.' },
-  { id: 'randomRootMax', label: 'Random Root Max', kind: 'select' as const,
-    defaultValue: 'C5',
-    options: NOTE_OPTIONS },
+const tone = (p: Params, cents: number, at = 0): Sequence => {
+  const s = single({
+    durationMs: num(p, 'durationMs', 500),
+    source: sourceFrom(p),
+    frequency: centsToHz(cents),
+    levelDb: num(p, 'levelDb', -14),
+    attackMs: num(p, 'rampMs', 10),
+    releaseMs: num(p, 'rampMs', 10),
+  });
+  return at ? { ...s, sounds: s.sounds.map((x) => ({ ...x, at: x.at + at })) } : s;
+};
 
-  // Note duration
-  { id: 'durationMs', label: 'Note Duration', kind: 'number' as const,
-    defaultValue: 800,
-    range: { min: 100, max: 5000, step: 50, unit: 'ms', extendable: true } },
+export const PITCH_HEIGHT: PrimitiveModel = {
+  quantity: 'pitch',
+  lowWord: 'lower',
+  highWord: 'higher',
+  scale: 'additive',
+  unit: '¢',
+  decimals: 0,
+  defaultRange: [-1200, 1200],
+  delta: { start: 50, min: 0.5, max: 400 },
+  relativeMax: 1200,
+  target: 8,
+  levelRoveDb: 2,
+  grid: 100,
+  format: (v) => `${Math.round(centsToHz(v))} Hz (${noteName(v)})`,
+  render: (v, p) => tone(p, v),
+};
 
-  // Sound source
-  { id: 'soundSource', label: 'Sound Source', kind: 'select' as const,
-    defaultValue: 'piano_acoustic',
-    options: SOUND_SOURCE_OPTIONS,
-    helpText: 'Instrument or waveform to play through.' },
+export const INTERVAL: PrimitiveModel = {
+  quantity: 'interval',
+  lowWord: 'smaller',
+  highWord: 'larger',
+  scale: 'additive',
+  unit: '¢',
+  decimals: 0,
+  defaultRange: [0, 1200],
+  delta: { start: 100, min: 1, max: 600 },
+  relativeMax: 600,
+  target: 15,
+  levelRoveDb: 2,
+  grid: 100,
+  format: (v) => intervalName(v),
+  render: (v, p, seed) => {
+    const r = mulberry32(seed ^ 0x2545f491);
+    const lo = num(p, 'rootMin', -900);
+    const hi = num(p, 'rootMax', 0);
+    const root = lo + r() * Math.max(0, hi - lo);
+    const dir = p.direction === 'down' ? -1 : p.direction === 'random' ? (r() < 0.5 ? -1 : 1) : 1;
+    const second = root + dir * v;
+    if (p.harmonic === 'harmonic') {
+      const a = tone(p, root);
+      const b = tone(p, second);
+      return { sounds: [...a.sounds, ...b.sounds], lengthSec: a.lengthSec };
+    }
+    return concat(tone(p, root), tone(p, second), num(p, 'noteGapMs', 150) / 1000);
+  },
+};
 
-  // Background noise — now actually implemented
-  { id: 'backgroundNoise', label: 'Background Noise', kind: 'select' as const,
-    defaultValue: 'silence',
-    options: [
-      { value: 'silence', label: 'Silence' },
-      { value: 'white', label: 'White noise' },
-      { value: 'pink', label: 'Pink noise' },
-      { value: 'brown', label: 'Brown noise' },
+export const PITCH_VARIABLES: Variable[] = [
+  {
+    id: 'music:p1-pitch:V1' as any,
+    name: 'Pitch Height',
+    definition: 'Where a single tone sits in pitch, in cents relative to A4 (440 Hz).',
+    unit: '¢',
+    defaultValue: 50,
+    variableDimensions: primitiveDimensions(PITCH_HEIGHT),
+    stimulusParameters: [
+      ...sourceParams({ source: 'triangle', frequency: 440, levelDb: -14, levelRoveDb: 2 }).filter((s) => s.id !== 'frequency'),
+      { id: 'durationMs', label: 'Duration', kind: 'number', defaultValue: 500, range: { min: 50, max: 3000, step: 10, unit: 'ms', extendable: true } },
     ],
-    helpText: 'Continuous noise played in the background during trials.' },
-  { id: 'backgroundNoiseLevel', label: 'Background Noise Level', kind: 'range',
-    defaultValue: 0.15,
-    range: { min: 0, max: 1, step: 0.05, unit: '× gain', extendable: false },
-    helpText: 'Volume of the background noise relative to the tone (0 = silent, 1 = loud).' },
+    visualisation: 'spectrum',
+  },
+  {
+    id: 'music:p1-pitch:V2' as any,
+    name: 'Interval',
+    definition: 'The distance between two tones, in cents. The root changes every trial, so only the distance is informative.',
+    unit: '¢',
+    defaultValue: 100,
+    variableDimensions: primitiveDimensions(INTERVAL, [
+      {
+        id: 'direction',
+        label: 'Direction',
+        kind: 'select',
+        defaultValue: 'up',
+        options: [
+          { value: 'up', label: 'Ascending' },
+          { value: 'down', label: 'Descending' },
+          { value: 'random', label: 'Random' },
+        ],
+      },
+      {
+        id: 'harmonic',
+        label: 'Presentation',
+        kind: 'select',
+        defaultValue: 'melodic',
+        options: [
+          { value: 'melodic', label: 'Melodic (one after the other)' },
+          { value: 'harmonic', label: 'Harmonic (together)' },
+        ],
+      },
+      { id: 'rootMin', label: 'Lowest root', kind: 'number', defaultValue: -900, range: { min: -4800, max: 2400, step: 50, unit: '¢ re A4', extendable: true } },
+      { id: 'rootMax', label: 'Highest root', kind: 'number', defaultValue: 0, range: { min: -4800, max: 2400, step: 50, unit: '¢ re A4', extendable: true } },
+    ]),
+    stimulusParameters: [
+      ...sourceParams({ source: 'triangle', frequency: 440, levelDb: -14, levelRoveDb: 2 }).filter((s) => s.id !== 'frequency'),
+      { id: 'durationMs', label: 'Note duration', kind: 'number', defaultValue: 500, range: { min: 50, max: 3000, step: 10, unit: 'ms', extendable: true } },
+      { id: 'noteGapMs', label: 'Gap between notes', kind: 'number', defaultValue: 150, range: { min: 0, max: 2000, step: 10, unit: 'ms', extendable: true } },
+    ],
+    visualisation: 'spectrum',
+  },
 ];
 
-// -----------------------------------------------------------------
-// V1 — Pitch Value (Hz)
-// -----------------------------------------------------------------
-const V1 = {
-  id: 'music:p1-pitch:V1' as any,
-  name: 'Pitch Value',
-  definition: 'Detect the fundamental frequency of a single tone.',
-  unit: 'Hz',
-  defaultValue: 440,
-  variableDimensions: [
-    { id: 'frequency', label: 'Frequency', kind: 'range',
-      defaultValue: 440,
-      range: { min: 20, max: 8000, step: 1, unit: 'Hz', extendable: true } },
-    { id: 'frequencyRange', label: 'Random Range (±Hz)', kind: 'range',
-      defaultValue: 200,
-      range: { min: 10, max: 2000, step: 10, unit: 'Hz', extendable: true } },
-  ],
-  stimulusParameters: commonStimulusParams,
-  visualisation: 'both',
-};
-
-// -----------------------------------------------------------------
-// V2 — Interval (semitones) — now with min/max range
-// -----------------------------------------------------------------
-const V2 = {
-  id: 'music:p1-pitch:V2' as any,
-  name: 'Interval',
-  definition: 'Detect the distance between two pitches as a musical interval, measured in semitones.',
-  unit: 'semitones',
-  defaultValue: 7,
-  variableDimensions: [
-    { id: 'intervalMin', label: 'Interval Min (semitones)', kind: 'number',
-      defaultValue: 1,
-      range: { min: 0, max: 12, step: 1, unit: 'semitones', extendable: true },
-      helpText: 'Smallest interval in semitones. 0 = unison, 12 = octave.' },
-    { id: 'intervalMax', label: 'Interval Max (semitones)', kind: 'number',
-      defaultValue: 12,
-      range: { min: 0, max: 24, step: 1, unit: 'semitones', extendable: true },
-      helpText: 'Largest interval in semitones. Must be >= Interval Min.' },
-    { id: 'direction', label: 'Direction', kind: 'select',
-      defaultValue: 'ascending',
-      options: [
-        { value: 'ascending', label: 'Ascending (lower note → higher)' },
-        { value: 'descending', label: 'Descending (higher → lower)' },
-        { value: 'harmonic', label: 'Harmonic (both played together)' },
-      ] },
-    { id: 'referencePresent', label: 'Reference Tone', kind: 'select',
-      defaultValue: 'present',
-      options: [
-        { value: 'present', label: 'Present (A plays the lower note)' },
-        { value: 'absent', label: 'Absent (A and B both random)' },
-      ] },
-  ],
-  stimulusParameters: commonStimulusParams,
-  visualisation: 'both',
-};
-
-// -----------------------------------------------------------------
-// V3 — Chord Perception
-// -----------------------------------------------------------------
-const V3 = {
-  id: 'music:p1-pitch:V3' as any,
-  name: 'Chord Perception',
-  definition: 'Recognise the type of chord when multiple tones are played simultaneously.',
-  unit: 'chord type',
-  defaultValue: 0,
-  variableDimensions: [
-    { id: 'chordFamily', label: 'Chord Family', kind: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'triad', label: 'Triads (maj, min, dim, aug, 5)' },
-        { value: 'seventh', label: 'Sevenths (maj7, min7, dom7, m7b5, dim7, mMaj7, aug7, augMaj7)' },
-        { value: 'sus', label: 'Suspended (sus2, sus4, 7sus4)' },
-        { value: 'extended', label: 'Extended (6, m6, 6add9, add9, madd9, 9, maj9, min9, 11, m11, 13)' },
-        { value: 'altered', label: 'Altered (7b5, 7#5, 7b9, 7#9, 7#11)' },
-        { value: 'all', label: 'All chord types (32 total)' },
-      ],
-      helpText: 'The drill picks a random chord from this family each trial.' },
-    { id: 'voicing', label: 'Voicing', kind: 'select',
-      defaultValue: 'close',
-      options: [
-        { value: 'close', label: 'Close (compact)' },
-        { value: 'open', label: 'Open (spread)' },
-        { value: 'spread', label: 'Spread (across octaves)' },
-      ] },
-    { id: 'inversion', label: 'Inversion', kind: 'select',
-      defaultValue: 'root',
-      options: [
-        { value: 'root', label: 'Root position' },
-        { value: 'first', label: '1st inversion' },
-        { value: 'second', label: '2nd inversion' },
-        { value: 'third', label: '3rd inversion' },
-        { value: 'random', label: 'Random per trial' },
-      ] },
-    { id: 'octaveShift', label: 'Register Shift', kind: 'range',
-      defaultValue: 0,
-      range: { min: -24, max: 24, step: 12, unit: 'semitones', extendable: true } },
-  ],
-  stimulusParameters: commonStimulusParams,
-  visualisation: 'both',
-};
-
-export const PITCH_VARIABLES: Variable[] = [V1, V2, V3];
-
+export const PITCH_MODELS = [
+  { variable: PITCH_VARIABLES[0]!, model: PITCH_HEIGHT },
+  { variable: PITCH_VARIABLES[1]!, model: INTERVAL },
+];

@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { AngleStage } from '../../stimuli/AngleStage';
-import { angleDifference, readAngleParams, referenceDegrees, resolveAngle } from './params';
+import { angleDifference, deltaDeg, readAngleParams, referenceDegrees, trialAngle } from './params';
 
 export function AngleT3Estimation({
   currentValue,
@@ -14,7 +14,8 @@ export function AngleT3Estimation({
   const [guess, setGuess] = useState('90');
 
   const params = readAngleParams(variableParams, stimulusParams);
-  const angle = resolveAngle(currentValue);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const angle = useMemo(() => trialAngle(variableParams), []);
   const reference = referenceDegrees(params.referenceType, params.referenceAngle);
   const numericGuess = guess.trim() === '' ? null : Number(guess);
   const validGuess =
@@ -30,7 +31,7 @@ export function AngleT3Estimation({
     setTimeout(
       () =>
         onAnswer({
-          correct: angleDifference(numericGuess, angle) <= params.tolerance,
+          correct: angleDifference(numericGuess, angle) <= deltaDeg(currentValue),
           responseTimeMs: Date.now() - startTime.current,
           userResponse: numericGuess,
           correctResponse: angle,
@@ -76,7 +77,7 @@ export function AngleT3Estimation({
           {showInvalid && (
             <p className="font-mono text-xs text-red-400">Enter an angle from 0 to 360.</p>
           )}
-          <p className="font-mono text-xs text-neutral-600">Accepted error: ±{params.tolerance}°</p>
+          <p className="font-mono text-xs text-neutral-600">Accepted error: ±{deltaDeg(currentValue).toFixed(1)}°</p>
           <button
             onClick={handle}
             disabled={answered || !validGuess}

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { AngleStage } from '../../stimuli/AngleStage';
-import { readAngleParams } from './params';
+import { readAngleParams, deltaDeg } from './params';
 
 export function AngleT2Discrimination({
   currentValue,
@@ -16,17 +16,14 @@ export function AngleT2Discrimination({
   const trial = useMemo(() => {
     const isSame = Math.random() > 0.5;
     const base = 30 + Math.random() * 100;
-    const stairScale = Math.max(0.1, Math.min(2, Math.abs(currentValue) / 45));
-    const offset = Math.max(
-      1,
-      Math.min(25, params.comparisonOffset * stairScale)
-    );
+    const offset = deltaDeg(currentValue);
     const direction = Math.random() > 0.5 ? 1 : -1;
     const second = isSame
       ? base
       : Math.max(5, Math.min(175, base + direction * offset));
     return { isSame, base, second };
-  }, [currentValue, params.comparisonOffset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handle = (saidSame: boolean) => {
     if (answered) return;

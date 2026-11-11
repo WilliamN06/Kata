@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
 import { formPropsFromParams, formRatio, readProportionParams } from './params';
+import { deltaPct } from './params';
 
 function parseRatioTerm(value: string): number | null {
   const cleaned = value.trim();
@@ -52,7 +53,7 @@ export function T3Estimation({
     }
     setShowWholeError(false);
     setAnswered(true);
-    const correct = Math.abs(numericGuess - targetRatio) / targetRatio <= p.tolerance;
+    const correct = Math.abs(numericGuess - targetRatio) / targetRatio <= deltaPct(currentValue) / 100;
     setTimeout(
       () =>
         onAnswer({
@@ -84,7 +85,7 @@ export function T3Estimation({
                 : 'Type the longer-to-shorter ratio.'}
           </p>
             <p className="font-mono text-xs text-neutral-600">
-              Accepted error: ±{(p.tolerance * 100).toFixed(0)}%
+              Accepted error: ±{deltaPct(currentValue).toFixed(1)}%
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">

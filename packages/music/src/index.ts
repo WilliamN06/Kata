@@ -11,3 +11,6 @@ export { DYNAMIC_VARIABLES } from './skills/dynamic/variables';
 export { TIMBRE_VARIABLES } from './skills/timbre/variables';
 export { RHYTHM_VARIABLES } from './skills/rhythm/variables';
 export { SPATIAL_VARIABLES } from './skills/spatial/variables';
+
+// Primitive models (mastery targets, units) for progress and Today's Session
+export { getPrimitive } from './shared/primitives/model';

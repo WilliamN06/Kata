@@ -67,6 +67,8 @@ export const SOUND_DURATION: PrimitiveModel = {
   display: beatDisplay,
   render: (v, p) => tone(p, v),
   prelude: countIn,
+  target: 10,
+  levelRoveDb: 2.5,
 };
 
 export const SILENCE_DURATION: PrimitiveModel = {
@@ -85,6 +87,8 @@ export const SILENCE_DURATION: PrimitiveModel = {
     return concat(tone(p, marker), tone(p, marker), v / 1000);
   },
   prelude: countIn,
+  target: 12,
+  levelRoveDb: 2.5,
 };
 
 const timeDims = [
@@ -120,7 +124,7 @@ export const RHYTHM_VARIABLES: Variable[] = [
     unit: 'ms',
     defaultValue: 30,
     variableDimensions: primitiveDimensions(SOUND_DURATION, timeDims),
-    stimulusParameters: sourceParams({ source: 'sine', frequency: 440, levelDb: -12 }),
+    stimulusParameters: sourceParams({ source: 'sine', frequency: 440, levelDb: -12, levelRoveDb: 2.5 }),
     visualisation: 'waveform',
   },
   {
@@ -133,7 +137,7 @@ export const RHYTHM_VARIABLES: Variable[] = [
       ...timeDims,
       { id: 'markerMs', label: 'Marker sound length', kind: 'number', defaultValue: 120, range: { min: 10, max: 1000, step: 5, unit: 'ms', extendable: true } },
     ]),
-    stimulusParameters: sourceParams({ source: 'sine', frequency: 440, levelDb: -12 }),
+    stimulusParameters: sourceParams({ source: 'sine', frequency: 440, levelDb: -12, levelRoveDb: 2.5 }),
     visualisation: 'waveform',
   },
 ];

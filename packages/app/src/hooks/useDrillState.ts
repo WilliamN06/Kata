@@ -1,6 +1,6 @@
 ﻿import { useState, useCallback, useMemo, useRef } from 'react';
 import type { DrillConfiguration, TrialResult, PerceptualRating } from '@kata/core';
-import { createStaircase, updateStaircase } from '@kata/core';
+import { computeThreshold, createStaircase, updateStaircase } from '@kata/core';
 import type { StaircaseState } from '@kata/core';
 import { logTrial } from '@kata/db';
 
@@ -20,6 +20,9 @@ export function useDrillState(config: DrillConfiguration | null) {
     createConfiguredStaircase(config)
   );
   const startTimeRef = useRef(Date.now());
+  // Mirrors `staircase` so recordTrial can read the Δ the trial ran at.
+  const staircaseRef = useRef(staircase);
+  staircaseRef.current = staircase;
 
   // Reset during render (not in an effect) so the first trial never mounts
   // with the placeholder staircase value from before settings loaded.
@@ -43,7 +46,9 @@ export function useDrillState(config: DrillConfiguration | null) {
     setAppliedKey(resetKey);
     setTrials([]);
     setComplete(false);
-    setStaircase(createConfiguredStaircase(config));
+    const fresh = createConfiguredStaircase(config);
+    setStaircase(fresh);
+    staircaseRef.current = fresh;
     startTimeRef.current = Date.now();
   }
 
@@ -71,18 +76,17 @@ export function useDrillState(config: DrillConfiguration | null) {
         return next;
       });
 
-      setStaircase((prev) => {
-        const next = updateStaircase(prev, correct);
-        const bounds = getStaircaseBounds(config);
-        if (!bounds) return next;
-        return {
+      const prev = staircaseRef.current;
+      let next = updateStaircase(prev, correct);
+      const bounds = getStaircaseBounds(config);
+      if (bounds) {
+        next = {
           ...next,
-          currentValue: Math.min(
-            Math.max(next.currentValue, bounds.minDelta),
-            bounds.maxDelta
-          ),
+          currentValue: Math.min(Math.max(next.currentValue, bounds.minDelta), bounds.maxDelta),
         };
-      });
+      }
+      staircaseRef.current = next;
+      setStaircase(next);
 
       const result: TrialResult = {
         variableId: config.variableId,
@@ -95,6 +99,9 @@ export function useDrillState(config: DrillConfiguration | null) {
         variableParams: config.variableParams,
         taskConditions: config.taskConditions,
         rating,
+        delta: prev.currentValue,
+        threshold: computeThreshold(next),
+        sessionId: String(startTimeRef.current),
       };
 
       try {

@@ -15,14 +15,9 @@ export const COLOUR_VARIABLES: Variable[] = [
         defaultValue: 180,
         range: { min: 0, max: 360, step: 1, unit: '°', extendable: true },
       },
-      {
-        id: 'hueRange',
-        label: 'Hue Range',
-        kind: 'number',
-        defaultValue: 30,
-        range: { min: 1, max: 180, step: 1, unit: '°', extendable: true },
-        helpText: 'Tolerance around the target hue (±degrees)',
-      },
+      { id: 'startDelta', label: 'Starting difference', kind: 'number', defaultValue: 30, range: { min: 0.1, max: 360, step: 0.1, unit: '°', extendable: true }, helpText: 'Staircase start: difference for discrimination and matching, accepted error for estimation.' },
+      { id: 'minDelta', label: 'Smallest difference', kind: 'number', defaultValue: 0.5, range: { min: 0.05, max: 360, step: 0.05, unit: '°', extendable: true } },
+      { id: 'maxDelta', label: 'Largest difference', kind: 'number', defaultValue: 90, range: { min: 1, max: 360, step: 1, unit: '°', extendable: true } },
     ],
     stimulusParameters: [
       {
@@ -74,14 +69,9 @@ export const COLOUR_VARIABLES: Variable[] = [
         defaultValue: 50,
         range: { min: 0, max: 100, step: 1, unit: '%', extendable: true },
       },
-      {
-        id: 'chromaRange',
-        label: 'Chroma Range',
-        kind: 'number',
-        defaultValue: 20,
-        range: { min: 1, max: 100, step: 1, unit: '%', extendable: true },
-        helpText: 'Tolerance (±% chroma)',
-      },
+      { id: 'startDelta', label: 'Starting difference', kind: 'number', defaultValue: 20, range: { min: 0.1, max: 360, step: 0.1, unit: '%', extendable: true }, helpText: 'Staircase start: difference for discrimination and matching, accepted error for estimation.' },
+      { id: 'minDelta', label: 'Smallest difference', kind: 'number', defaultValue: 0.5, range: { min: 0.05, max: 360, step: 0.05, unit: '%', extendable: true } },
+      { id: 'maxDelta', label: 'Largest difference', kind: 'number', defaultValue: 60, range: { min: 1, max: 360, step: 1, unit: '%', extendable: true } },
     ],
     stimulusParameters: [
       {
@@ -133,14 +123,9 @@ export const COLOUR_VARIABLES: Variable[] = [
         defaultValue: 50,
         range: { min: 0, max: 100, step: 1, unit: '', extendable: true },
       },
-      {
-        id: 'valueRange',
-        label: 'Value Range',
-        kind: 'number',
-        defaultValue: 5,
-        range: { min: 1, max: 50, step: 1, unit: 'L*', extendable: true },
-        helpText: 'Tolerance (±L*)',
-      },
+      { id: 'startDelta', label: 'Starting difference', kind: 'number', defaultValue: 5, range: { min: 0.1, max: 360, step: 0.1, unit: 'L*', extendable: true }, helpText: 'Staircase start: difference for discrimination and matching, accepted error for estimation.' },
+      { id: 'minDelta', label: 'Smallest difference', kind: 'number', defaultValue: 0.2, range: { min: 0.05, max: 360, step: 0.05, unit: 'L*', extendable: true } },
+      { id: 'maxDelta', label: 'Largest difference', kind: 'number', defaultValue: 30, range: { min: 1, max: 360, step: 1, unit: 'L*', extendable: true } },
     ],
     stimulusParameters: [
       {

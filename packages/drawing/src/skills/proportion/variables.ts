@@ -18,6 +18,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
     definition:
       'The capacity to perceive the ratio between two extents on the same plane — as dots, lines, or lines with dots, in any arrangement.',
     unit: 'ratio',
+    defaultValue: 25,
     variableDimensions: [
       {
         id: 'lowerBound',
@@ -26,7 +27,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
         defaultValue: 1,
         range: { min: 0.01, max: 100, step: 0.01, unit: ':1', extendable: true },
         helpText:
-          'Smallest ratio the staircase and generated examples may use.',
+          'Smallest base ratio a trial may use (roved each trial).',
       },
       {
         id: 'upperBound',
@@ -35,7 +36,7 @@ export const PROPORTION_VARIABLES: Variable[] = [
         defaultValue: 10,
         range: { min: 0.01, max: 1000, step: 0.01, unit: ':1', extendable: true },
         helpText:
-          'Largest ratio the staircase and generated examples may use.',
+          'Largest base ratio a trial may use (roved each trial).',
       },
       {
         id: 'ratioDirection',
@@ -118,14 +119,15 @@ export const PROPORTION_VARIABLES: Variable[] = [
 
       // ---------- TOLERANCE ----------
       {
-        id: 'tolerance',
-        label: 'Tolerance',
+        id: 'startDelta',
+        label: 'Starting difference',
         kind: 'number',
-        defaultValue: 0.15,
-        range: { min: 0.01, max: 1, step: 0.01, unit: '× ratio', extendable: true },
-        helpText:
-          'How close an estimate must be to count as correct. 0.15 = ±15% of true ratio.',
+        defaultValue: 25,
+        range: { min: 0.25, max: 100, step: 0.25, unit: '%', extendable: true },
+        helpText: 'Staircase start: % difference between ratios, or the accepted error for estimation/matching.',
       },
+      { id: 'minDelta', label: 'Smallest difference', kind: 'number', defaultValue: 0.5, range: { min: 0.1, max: 100, step: 0.1, unit: '%', extendable: true } },
+      { id: 'maxDelta', label: 'Largest difference', kind: 'number', defaultValue: 100, range: { min: 1, max: 200, step: 1, unit: '%', extendable: true } },
 
       // ---------- LABELS ----------
       {
@@ -231,13 +233,11 @@ export const PROPORTION_VARIABLES: Variable[] = [
     unit: 'degrees',
     defaultValue: 45,
     variableDimensions: [
-      {
-        id: 'angleValue',
-        label: 'Angle Value',
-        kind: 'number',
-        defaultValue: 45,
-        range: { min: 0, max: 360, step: 1, unit: '°', extendable: true },
-      },
+      { id: 'angleMin', label: 'Smallest angle', kind: 'number', defaultValue: 5, range: { min: 0, max: 360, step: 1, unit: '°', extendable: true }, helpText: 'Angles are roved per trial in this range.' },
+      { id: 'angleMax', label: 'Largest angle', kind: 'number', defaultValue: 175, range: { min: 0, max: 360, step: 1, unit: '°', extendable: true } },
+      { id: 'startDelta', label: 'Starting difference', kind: 'number', defaultValue: 8, range: { min: 0.25, max: 45, step: 0.25, unit: '°', extendable: true }, helpText: 'Staircase start: angular difference, or the accepted error for estimation.' },
+      { id: 'minDelta', label: 'Smallest difference', kind: 'number', defaultValue: 0.25, range: { min: 0.1, max: 45, step: 0.05, unit: '°', extendable: true } },
+      { id: 'maxDelta', label: 'Largest difference', kind: 'number', defaultValue: 45, range: { min: 1, max: 90, step: 1, unit: '°', extendable: true } },
       {
         id: 'referenceType',
         label: 'Reference Type',
@@ -266,22 +266,6 @@ export const PROPORTION_VARIABLES: Variable[] = [
         range: { min: 10, max: 90, step: 1, unit: '%', extendable: false },
         helpText:
           'Line length as a percentage of the available window. The whole angle auto-fits the stage.',
-      },
-      {
-        id: 'tolerance',
-        label: 'Accepted error',
-        kind: 'number',
-        defaultValue: 8,
-        range: { min: 1, max: 45, step: 1, unit: 'degrees', extendable: true },
-        helpText: 'How close an estimate must be to count as correct.',
-      },
-      {
-        id: 'comparisonOffset',
-        label: 'Comparison offset',
-        kind: 'number',
-        defaultValue: 8,
-        range: { min: 1, max: 45, step: 1, unit: 'degrees', extendable: true },
-        helpText: 'Angular difference used by discrimination trials.',
       },
     ],
     stimulusParameters: [

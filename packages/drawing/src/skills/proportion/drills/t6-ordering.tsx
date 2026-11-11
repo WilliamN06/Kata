@@ -6,8 +6,10 @@ import {
   formRatio,
   readProportionParams,
 } from './params';
+import { deltaPct, trialRatio } from './params';
 
 export function T6Ordering({
+  currentValue,
   variableParams,
   stimulusParams,
   onAnswer,
@@ -20,11 +22,10 @@ export function T6Ordering({
   const formProps = formPropsFromParams(p);
 
   const stimuli = useMemo(() => {
-    const span = Math.max(0.1, p.upperBound - p.lowerBound);
-    const ratios = [0.12, 0.36, 0.62, 0.9]
-      .map((fraction) =>
-        Number((p.lowerBound + span * fraction).toFixed(2))
-      )
+    // Four ratios spaced by the staircase Δ around a roved centre.
+    const centre = trialRatio(p);
+    const ratios = [-1.5, -0.5, 0.5, 1.5]
+      .map((k) => Number((centre * Math.pow(1 + deltaPct(currentValue) / 100, k)).toFixed(3)))
       .sort(() => Math.random() - 0.5);
     const direction =
       p.ratioDirection === 'both'
@@ -37,12 +38,8 @@ export function T6Ordering({
       ratio,
       extentRatio: formRatio(ratio, oriented),
     }));
-  }, [
-    p.markType,
-    p.ratioDirection,
-    p.lowerBound,
-    p.upperBound,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handle = () => {
     if (answered) return;

@@ -4,7 +4,8 @@ import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
   formRatio,
-  ratioForParams,
+  deltaPct,
+  trialRatio,
   readProportionParams,
 } from './params';
 
@@ -19,12 +20,14 @@ export function T2Discrimination({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const ratio = ratioForParams(currentValue, p);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const ratio = useMemo(() => trialRatio(p), []);
+  const dPct = deltaPct(currentValue);
 
   const pair = useMemo(() => {
     const canDiffer = p.upperBound > p.lowerBound;
     const isDiff = canDiffer && Math.random() > 0.5;
-    const delta = Math.max(0.35, ratio * 0.25);
+    const delta = ratio * (dPct / 100);
     const upper = p.upperBound;
     const lower = p.lowerBound;
     const higher = Math.min(upper, ratio + delta);

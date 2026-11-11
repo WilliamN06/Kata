@@ -4,7 +4,7 @@ import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
   formRatio,
-  ratioForParams,
+  trialRatio,
   readProportionParams,
 } from './params';
 
@@ -19,7 +19,8 @@ export function T1Categorisation({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const ratio = ratioForParams(currentValue, p);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const ratio = useMemo(() => trialRatio(p), []);
   const extentRatio = useMemo(
     () => formRatio(ratio, p),
     [ratio, p.markType, p.ratioDirection]

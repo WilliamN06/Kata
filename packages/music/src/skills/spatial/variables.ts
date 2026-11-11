@@ -44,6 +44,9 @@ export const ILD: PrimitiveModel = {
   delta: { start: 3, min: 0.1, max: 12 },
   relativeMax: 12,
   format: (v) => side(v, 'dB', 1),
+  target: 1,
+  headphones: true,
+  levelRoveDb: 2,
   render: (v, p) => burst(p, { ildDb: v }),
 };
 
@@ -58,6 +61,9 @@ export const ITD: PrimitiveModel = {
   delta: { start: 200, min: 2, max: 600 },
   relativeMax: 600,
   format: (v) => side(v, 'µs', 0),
+  target: 20,
+  headphones: true,
+  levelRoveDb: 2,
   render: (v, p) => burst(p, { itdUs: v }),
 };
 
@@ -71,6 +77,9 @@ export const WIDTH: PrimitiveModel = {
   defaultRange: [0, 100],
   delta: { start: 25, min: 1, max: 100 },
   relativeMax: 100,
+  target: 10,
+  headphones: true,
+  levelRoveDb: 2,
   // Correlation needs independent left/right signals, so width always uses noise.
   render: (v, p) => burst(p, { source: 'noise', correlation: 1 - Math.min(100, Math.max(0, v)) / 100 }),
 };
@@ -86,6 +95,8 @@ export const WETNESS: PrimitiveModel = {
   delta: { start: 6, min: 0.25, max: 24 },
   relativeMax: 18,
   format: (v) => `${v.toFixed(1)} dB reverb/direct`,
+  target: 3,
+  levelRoveDb: 2,
   render: (v, p) =>
     burst(p, {
       wetDb: v,
@@ -113,7 +124,7 @@ export const SPATIAL_VARIABLES: Variable[] = [
     unit: 'dB',
     defaultValue: 3,
     variableDimensions: primitiveDimensions(ILD),
-    stimulusParameters: [...sourceParams({ source: 'noise', frequency: 2000, levelDb: -16 }), durationParam(300)],
+    stimulusParameters: [...sourceParams({ source: 'noise', frequency: 2000, levelDb: -16, levelRoveDb: 2 }), durationParam(300)],
     visualisation: 'goniometer',
   },
   {
@@ -124,7 +135,7 @@ export const SPATIAL_VARIABLES: Variable[] = [
     defaultValue: 6,
     variableDimensions: primitiveDimensions(WETNESS),
     stimulusParameters: [
-      ...sourceParams({ source: 'noise', frequency: 1000, levelDb: -16 }),
+      ...sourceParams({ source: 'noise', frequency: 1000, levelDb: -16, levelRoveDb: 2 }),
       durationParam(200),
       { id: 'roomDecaySec', label: 'Room decay (RT60)', kind: 'number', defaultValue: 1.2, range: { min: 0.1, max: 8, step: 0.1, unit: 's', extendable: true } },
       { id: 'roomSeed', label: 'Room', kind: 'number', defaultValue: 1, range: { min: 1, max: 99, step: 1, unit: '', extendable: true } },
@@ -138,7 +149,7 @@ export const SPATIAL_VARIABLES: Variable[] = [
     unit: 'µs',
     defaultValue: 200,
     variableDimensions: primitiveDimensions(ITD),
-    stimulusParameters: [...sourceParams({ source: 'noise', frequency: 500, levelDb: -16 }), durationParam(300)],
+    stimulusParameters: [...sourceParams({ source: 'noise', frequency: 500, levelDb: -16, levelRoveDb: 2 }), durationParam(300)],
     visualisation: 'goniometer',
   },
   {
@@ -148,7 +159,7 @@ export const SPATIAL_VARIABLES: Variable[] = [
     unit: '%',
     defaultValue: 25,
     variableDimensions: primitiveDimensions(WIDTH),
-    stimulusParameters: [...sourceParams({ source: 'noise', frequency: 1000, levelDb: -16 }).filter((s) => s.id !== 'source' && s.id !== 'frequency'), durationParam(500)],
+    stimulusParameters: [...sourceParams({ source: 'noise', frequency: 1000, levelDb: -16, levelRoveDb: 2 }).filter((s) => s.id !== 'source' && s.id !== 'frequency'), durationParam(500)],
     visualisation: 'goniometer',
   },
 ];

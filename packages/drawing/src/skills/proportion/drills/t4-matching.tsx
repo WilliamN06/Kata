@@ -4,8 +4,9 @@ import { ExtentForm } from '../stimuli/ExtentForm';
 import {
   formPropsFromParams,
   formRatio,
-  ratioForParams,
-  ratioOptions,
+  deltaPct,
+  spacedRatioOptions,
+  trialRatio,
   readProportionParams,
 } from './params';
 
@@ -20,7 +21,9 @@ export function T4Matching({
 
   const p = readProportionParams(variableParams, stimulusParams);
   const formProps = formPropsFromParams(p);
-  const targetRatio = ratioForParams(currentValue, p);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const targetRatio = useMemo(() => trialRatio(p), []);
+  const dPct = deltaPct(currentValue);
   const extentRatio = useMemo(
     () => formRatio(targetRatio, p),
     [targetRatio, p.markType, p.ratioDirection]
@@ -28,19 +31,15 @@ export function T4Matching({
 
   const options = useMemo(
     () =>
-      ratioOptions(
-        targetRatio,
-        4,
-        p.lowerBound,
-        p.upperBound
-      ),
-    [targetRatio, p.lowerBound, p.upperBound]
+      spacedRatioOptions(targetRatio, dPct),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [targetRatio]
   );
 
   const handle = (choice: number) => {
     if (answered) return;
     setAnswered(true);
-    const correct = Math.abs(choice - targetRatio) < 0.02;
+    const correct = Math.abs(choice - targetRatio) < 1e-9;
     setTimeout(
       () =>
         onAnswer({

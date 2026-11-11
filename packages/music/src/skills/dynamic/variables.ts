@@ -28,6 +28,8 @@ export const LEVEL: PrimitiveModel = {
   delta: { start: 3, min: 0.1, max: 12 },
   relativeMax: 12,
   display: () => ({ unit: 'dBFS', to: (v) => v, from: (d) => d, decimals: 1 }),
+  target: 1,
+  levelRoveDb: 0,
   render: (v, p) =>
     single({
       durationMs: num(p, 'durationMs', 600),
@@ -49,6 +51,8 @@ export const ENVELOPE: PrimitiveModel = {
   defaultRange: [5, 400],
   delta: { start: 40, min: 2, max: 300 },
   relativeMax: 3,
+  target: 20,
+  levelRoveDb: 2,
   render: (v, p) => {
     const hold = num(p, 'holdMs', 400);
     const ramp = num(p, 'rampMs', 5);
@@ -97,7 +101,7 @@ export const DYNAMIC_VARIABLES: Variable[] = [
       },
     ]),
     stimulusParameters: [
-      ...sourceParams({ source: 'sawtooth', frequency: 220, levelDb: -14 }),
+      ...sourceParams({ source: 'sawtooth', frequency: 220, levelDb: -14, levelRoveDb: 2 }),
       { id: 'holdMs', label: 'Steady part', kind: 'number', defaultValue: 400, range: { min: 0, max: 5000, step: 10, unit: 'ms', extendable: true } },
     ],
     visualisation: 'waveform-envelope',

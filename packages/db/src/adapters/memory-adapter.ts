@@ -15,6 +15,7 @@ interface Tables {
     threshold: number | null;
     trial_count: number;
     last_practiced: string | null;
+    thresholds_json?: string | null;
   }>;
   trial_history: Array<{
     id: number;
@@ -28,6 +29,8 @@ interface Tables {
     user_response: string | null;
     correct_response: string | null;
     rating_json: string | null;
+    delta?: number | null;
+    session_id?: string | null;
     created_at: string;
   }>;
   drill_configurations: Array<{
@@ -85,12 +88,12 @@ export class MemoryAdapter implements DbAdapter {
     const trimmed = sql.trim().toUpperCase();
 
     if (trimmed.startsWith('INSERT OR REPLACE INTO VARIABLE_STATE')) {
-      const [variable_id, accuracy, threshold, trial_count, last_practiced] =
-        params as [string, number, number | null, number, string | null];
+      const [variable_id, accuracy, threshold, trial_count, last_practiced, thresholds_json] =
+        params as [string, number, number | null, number, string | null, string | null | undefined];
       const idx = this.tables.variable_state.findIndex(
         (r) => r.variable_id === variable_id
       );
-      const row = { variable_id, accuracy, threshold, trial_count, last_practiced };
+      const row = { variable_id, accuracy, threshold, trial_count, last_practiced, thresholds_json: thresholds_json ?? null };
       if (idx >= 0) this.tables.variable_state[idx] = row;
       else this.tables.variable_state.push(row);
       this.persist();
@@ -101,16 +104,19 @@ export class MemoryAdapter implements DbAdapter {
       const [
         variable_id, task_type, stimulus_params, variable_params,
         task_conditions, correct, response_time_ms, user_response,
-        correct_response, rating_json,
+        correct_response, rating_json, delta, session_id,
       ] = params as [
         string, string, string | null, string | null, string | null,
-        number, number | null, string | null, string | null, string | null
+        number, number | null, string | null, string | null, string | null,
+        number | null | undefined, string | null | undefined
       ];
       this.tables.trial_history.push({
         id: this.nextTrialId++,
         variable_id, task_type, stimulus_params, variable_params,
         task_conditions, correct, response_time_ms, user_response,
         correct_response, rating_json,
+        delta: delta ?? null,
+        session_id: session_id ?? null,
         created_at: new Date().toISOString(),
       });
       this.persist();

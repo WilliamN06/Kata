@@ -6,6 +6,8 @@ import { randomHue, randomChroma, randomLStar } from '../utils';
 export function T5Detection({ variable, variableParams, stimulusParams, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
+  // Fixed per trial: re-rendering (e.g. after answering) must not change the stimulus.
+  const rnd = useMemo(() => ({ hue: randomHue(), chroma: randomChroma(), l: randomLStar(), order: [0, 1, 2, 3].sort(() => Math.random() - 0.5) }), []);
 
   const varId = variable.id.split(':').pop() || 'V1';
   const surfaceSize = Number(stimulusParams.surfaceSize) || 160;
@@ -16,17 +18,17 @@ export function T5Detection({ variable, variableParams, stimulusParams, onAnswer
   let question = '';
 
   if (varId === 'V1') {
-    hue = randomHue();
+    hue = rnd.hue;
     chroma = Number(stimulusParams.chroma) || 80;
     lStar = Number(stimulusParams.lStar) || 55;
     question = 'Is the hue a warm colour (red/orange/yellow)?';
   } else if (varId === 'V2') {
-    chroma = randomChroma();
+    chroma = rnd.chroma;
     hue = Number(stimulusParams.hue) || 30;
     lStar = Number(stimulusParams.lStar) || 55;
     question = 'Is this colour highly saturated (chroma > 70)?';
   } else {
-    lStar = randomLStar();
+    lStar = rnd.l;
     hue = Number(stimulusParams.hue) || 0;
     chroma = Number(stimulusParams.chroma) || 0;
     question = 'Is this colour light (L* > 50)?';

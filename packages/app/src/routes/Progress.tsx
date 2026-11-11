@@ -1,6 +1,7 @@
 ﻿import { useNavigate } from 'react-router-dom';
 import { useProgress } from '../hooks/useProgress';
 import { getVariable } from '../registry';
+import { STAGES, allMastery, formatThreshold } from '../mastery';
 
 export function Progress() {
   const navigate = useNavigate();
@@ -33,6 +34,28 @@ export function Progress() {
             REFRESH
           </button>
         </div>
+
+        <Section title="Mastery (music)">
+          <div className="space-y-2">
+            {allMastery(summary.states).map((m) => {
+              const history = summary.states[m.variable.id]?.thresholds?.['T2-discrimination']?.history ?? [];
+              return (
+                <div key={m.variable.id} className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 text-sm">{m.variable.name}</div>
+                    <div className="text-xs text-neutral-500">
+                      {m.stage >= STAGES.length ? 'Mastered' : `Stage ${m.stage + 1} · ${STAGES[m.stage]!.label}`}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs font-mono text-neutral-500">
+                    discrimination target {formatThreshold(m.target, m.unit)}
+                    {history.length > 0 && ' · sessions: ' + history.slice(-6).map((h) => formatThreshold(h.value, m.unit)).join(' → ')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
 
         {/* By subskill */}
         <Section title="By Subskill">

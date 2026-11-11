@@ -5,6 +5,8 @@ import {
   angleDifference,
   readAngleParams,
   resolveAngle,
+  deltaDeg,
+  trialAngle,
 } from './params';
 
 export function AngleT4Matching({
@@ -16,16 +18,19 @@ export function AngleT4Matching({
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
   const params = readAngleParams(variableParams, stimulusParams);
-  const target = resolveAngle(currentValue);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const target = useMemo(() => trialAngle(variableParams), []);
+  const step = deltaDeg(currentValue);
 
   const options = useMemo(() => {
     const angles = [
       target,
-      resolveAngle(target + 14),
-      resolveAngle(target - 20),
-      resolveAngle(target + 33),
+      resolveAngle(target + step),
+      resolveAngle(target - step),
+      resolveAngle(target + 2 * step),
     ];
     return angles.sort(() => Math.random() - 0.5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
   const handle = (choice: number) => {

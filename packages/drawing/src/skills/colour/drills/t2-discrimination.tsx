@@ -3,9 +3,11 @@ import type { DrillProps } from '@kata/core';
 import { ColourChip } from '../stimuli/ColourChip';
 import { randomHue, randomChroma, randomLStar } from '../utils';
 
-export function T2Discrimination({ variable, variableParams, stimulusParams, onAnswer }: DrillProps) {
+export function T2Discrimination({ variable, variableParams, currentValue, stimulusParams, onAnswer }: DrillProps) {
   const startTime = useRef(Date.now());
   const [answered, setAnswered] = useState(false);
+  // Fixed per trial: re-rendering (e.g. after answering) must not change the stimulus.
+  const rnd = useMemo(() => ({ hue: randomHue(), chroma: randomChroma(), l: randomLStar(), order: [0, 1, 2, 3].sort(() => Math.random() - 0.5) }), []);
 
   const varId = variable.id.split(':').pop() || 'V1';
   const surfaceSize = Math.floor((Number(stimulusParams.surfaceSize) || 160) * 0.6);
@@ -16,10 +18,10 @@ export function T2Discrimination({ variable, variableParams, stimulusParams, onA
   let hueB = 0, chromaB = 0, lB = 50;
 
   if (varId === 'V1') {
-    const hue = randomHue();
+    const hue = rnd.hue;
     const chroma = Number(stimulusParams.chroma) || 80;
     const lStar = Number(stimulusParams.lStar) || 55;
-    const offset = Number(variableParams.hueRange) || 30;
+    const offset = (Number(currentValue) || Number(variableParams.hueRange) || 30);
     hueA = hue;
     hueB = isDiff ? (hue + offset) % 360 : hue;
     chromaA = chromaB = chroma;
@@ -27,8 +29,8 @@ export function T2Discrimination({ variable, variableParams, stimulusParams, onA
   } else if (varId === 'V2') {
     const hue = Number(stimulusParams.hue) || 30;
     const lStar = Number(stimulusParams.lStar) || 55;
-    const chroma = randomChroma();
-    const offset = Number(variableParams.chromaRange) || 20;
+    const chroma = rnd.chroma;
+    const offset = (Number(currentValue) || Number(variableParams.chromaRange) || 20);
     chromaA = chroma;
     chromaB = isDiff ? Math.max(0, Math.min(100, chroma + offset)) : chroma;
     hueA = hueB = hue;
@@ -36,8 +38,8 @@ export function T2Discrimination({ variable, variableParams, stimulusParams, onA
   } else {
     const hue = Number(stimulusParams.hue) || 0;
     const chroma = Number(stimulusParams.chroma) || 0;
-    const lStar = randomLStar();
-    const offset = Number(variableParams.valueRange) || 5;
+    const lStar = rnd.l;
+    const offset = (Number(currentValue) || Number(variableParams.valueRange) || 5);
     lA = lStar;
     lB = isDiff ? Math.max(0, Math.min(100, lStar + offset)) : lStar;
     hueA = hueB = hue;
