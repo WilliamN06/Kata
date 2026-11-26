@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DrillProps } from '@kata/core';
 import { ExtentForm } from '../stimuli/ExtentForm';
-import { formPropsFromParams, formRatio, readProportionParams } from './params';
+import { formPropsFromParams, formRatio, readProportionParams, trialRatio } from './params';
 import { deltaPct } from './params';
 
 function parseRatioTerm(value: string): number | null {
@@ -22,15 +22,9 @@ export function T3Estimation({
   const [firstTerm, setFirstTerm] = useState('1');
   const [secondTerm, setSecondTerm] = useState('1');
   const [showWholeError, setShowWholeError] = useState(false);
-  const [targetRatio, setTargetRatio] = useState<number>(1);
-
-  useEffect(() => {
-    const lower = Math.max(1, Math.floor(p.lowerBound));
-    const upper = Math.max(lower, Math.floor(p.upperBound));
-    setTargetRatio(Math.floor(Math.random() * (upper - lower + 1)) + lower);
-  }, []);
-
   const p = readProportionParams(variableParams, stimulusParams);
+  // Picked once per trial, before the first draw (it used to draw 1:1 first).
+  const [targetRatio] = useState<number>(() => trialRatio(p));
   const formProps = formPropsFromParams(p);
   const extentRatio = useMemo(() => formRatio(targetRatio, p), [
     targetRatio,

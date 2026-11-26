@@ -277,9 +277,19 @@ export function ExtentForm(props: ExtentFormProps) {
     ]);
   }, [relationship]);
 
-  const layout = useMemo(() => {
+  // What is judged is what is seen: an extent runs from the outer edge of a free
+  // end's dot to the outer edge of the other (or to the centre of a joint two
+  // extents share). Dots keep their size while the window shrinks the lengths,
+  // so lengths measured between dot centres drifted further from the ratio the
+  // smaller the window (1:8 looked like 1:6.4 in a narrow window).
+  const hasEndDots = markType !== 'line';
+  const jointed =
+    markType === 'three-dots' ||
+    resolvedRelationship === 'end-to-end' ||
+    resolvedRelationship === 'end-to-end-angled';
+
+  const geometry = useMemo(() => {
     const usableW = dims.width - limitGap * 2;
-    const usableH = dims.height - limitGap * 2;
     const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
     const rawA = usableW * referenceFraction * scale;
     const rawB = rawA * ratio;
@@ -287,66 +297,62 @@ export function ExtentForm(props: ExtentFormProps) {
     const angleRad = (angle * Math.PI) / 180;
     const jointRad = (jointAngle * Math.PI) / 180;
 
+    // Fit the visible form to the window, the dots' overhang included.
     const raw = buildLayout(resolvedRelationship, rawA, rawB, gap, angleRad, jointRad);
-    const rawBounds = contentBounds(raw);
-    const fit = fitFactor(
-      dims.width,
-      dims.height,
-      position,
-      limitGap,
-      rawBounds.maxX - rawBounds.minX,
-      rawBounds.maxY - rawBounds.minY
+    const rb = contentBounds(raw);
+    const fit = fitFactor(dims.width, dims.height, position, limitGap, rb.maxX - rb.minX, rb.maxY - rb.minY);
+    const visA = rawA * fit;
+    const visB = rawB * fit;
+
+    // Dots never take up more than a third of the shorter extent.
+    const dot = hasEndDots ? Math.min(dotSize, Math.min(visA, visB) / 3) : 0;
+    // Each free end gives back half a dot; a shared joint is measured to its centre.
+    const inset = jointed ? dot / 2 : dot;
+    const scaled = buildLayout(
+      resolvedRelationship,
+      Math.max(0, visA - inset),
+      Math.max(0, visB - inset),
+      gap * fit,
+      angleRad,
+      jointRad
     );
-    const scaled = scaleLayout(raw, fit);
-    const scaledBounds = contentBounds(scaled);
+    const sb = contentBounds(scaled);
     const centre = targetCentre(dims.width, dims.height, position);
-
-    return translateLayout(
-      scaled,
-      centre.x - (scaledBounds.minX + scaledBounds.maxX) / 2,
-      centre.y - (scaledBounds.minY + scaledBounds.maxY) / 2
-    );
-  }, [dims, limitGap, baseLength, scale, ratio, angle, jointAngle, position, resolvedRelationship]);
-
-  const twoDots = useMemo(() => {
-    if (markType !== 'two-dots') return null;
-
-    const usableW = dims.width - limitGap * 2;
-    const referenceFraction = Math.min(0.99, Math.max(0.05, baseLength / 100));
-    const rawH = usableW * referenceFraction * scale;
-    const rawV = rawH / Math.max(0.01, ratio);
-    const fit = fitFactor(dims.width, dims.height, position, limitGap, rawH, rawV);
-    const horizontal = rawH * fit;
-    const vertical = rawV * fit;
-    const centre = targetCentre(dims.width, dims.height, position);
-
     return {
-      x1: centre.x - horizontal / 2,
-      y1: centre.y + vertical / 2,
-      x2: centre.x + horizontal / 2,
-      y2: centre.y - vertical / 2,
+      dot,
+      layout: translateLayout(
+        scaled,
+        centre.x - (sb.minX + sb.maxX) / 2,
+        centre.y - (sb.minY + sb.maxY) / 2
+      ),
     };
-  }, [markType, dims, limitGap, baseLength, scale, ratio, position]);
+  }, [dims, limitGap, baseLength, scale, ratio, angle, jointAngle, position, resolvedRelationship, dotSize, hasEndDots, jointed]);
+  const layout = geometry.layout;
 
-  const fourDots = useMemo(() => {
-    if (markType !== 'four-dots') return null;
-
-    // One rectangle with width / height = ratio exactly. Width and height are
-    // scaled together to fit (cropping each on its own changed the ratio whenever
-    // the window was short or narrow), and the dots sit exactly on the corners
-    // (jittering each dot changed the very ratio being judged).
+  // Two and four dots: the outer edges of the dots make a rectangle whose
+  // width / height is exactly the ratio, fitted to the window as a whole.
+  const cornerRect = useMemo(() => {
     const usableW = dims.width - limitGap * 2;
     const rawW = usableW * Math.min(0.99, Math.max(0.05, baseLength / 100)) * scale;
     const rawH = rawW / Math.max(0.01, ratio);
     const fit = fitFactor(dims.width, dims.height, position, limitGap, rawW, rawH);
-    const w = rawW * fit;
-    const h = rawH * fit;
+    const W = rawW * fit;
+    const H = rawH * fit;
+    const dot = Math.min(dotSize, Math.min(W, H) / 3);
     const centre = targetCentre(dims.width, dims.height, position);
-    const leftX = centre.x - w / 2;
-    const rightX = centre.x + w / 2;
-    const topY = centre.y - h / 2;
-    const bottomY = centre.y + h / 2;
+    return { cx: centre.x, cy: centre.y, w: W - dot, h: H - dot, dot };
+  }, [dims, limitGap, baseLength, scale, ratio, position, dotSize]);
 
+  const twoDots = useMemo(() => {
+    if (markType !== 'two-dots') return null;
+    const { cx, cy, w, h } = cornerRect;
+    return { x1: cx - w / 2, y1: cy + h / 2, x2: cx + w / 2, y2: cy - h / 2 };
+  }, [markType, cornerRect]);
+
+  const fourDots = useMemo(() => {
+    if (markType !== 'four-dots') return null;
+    const { cx, cy, w, h } = cornerRect;
+    const leftX = cx - w / 2, rightX = cx + w / 2, topY = cy - h / 2, bottomY = cy + h / 2;
     return {
       dots: [
         { x: leftX, y: topY },
@@ -355,7 +361,9 @@ export function ExtentForm(props: ExtentFormProps) {
         { x: rightX, y: bottomY },
       ],
     };
-  }, [markType, dims, limitGap, baseLength, scale, ratio, position]);
+  }, [markType, cornerRect]);
+
+  const dotR = (markType === 'two-dots' || markType === 'four-dots' ? cornerRect.dot : geometry.dot) / 2;
 
   const threeDots = useMemo(() => {
     if (markType !== 'three-dots') return null;
@@ -466,33 +474,33 @@ export function ExtentForm(props: ExtentFormProps) {
         {/* 3 dots only: A1, shared (if any), B2 — but also A2/B1 which equal shared */}
         {twoDots && (
           <>
-            <circle cx={twoDots.x1} cy={twoDots.y1} r={dotSize / 2} fill={colours.fg} />
-            <circle cx={twoDots.x2} cy={twoDots.y2} r={dotSize / 2} fill={colours.fg} />
+            <circle cx={twoDots.x1} cy={twoDots.y1} r={dotR} fill={colours.fg} />
+            <circle cx={twoDots.x2} cy={twoDots.y2} r={dotR} fill={colours.fg} />
           </>
         )}
         {markType === 'four-dots' && fourDots && (
           <>
             {fourDots.dots.map((dot, i) => (
-              <circle key={i} cx={dot.x} cy={dot.y} r={dotSize / 2} fill={colours.fg} />
+              <circle key={i} cx={dot.x} cy={dot.y} r={dotR} fill={colours.fg} />
             ))}
           </>
         )}
         {markType === 'three-dots' && threeDots && (
           <>
-            <circle cx={threeDots.a1.x} cy={threeDots.a1.y} r={dotSize / 2} fill={colours.fg} />
-            <circle cx={threeDots.shared.x} cy={threeDots.shared.y} r={dotSize / 2} fill={colours.fg} />
-            <circle cx={threeDots.b2.x} cy={threeDots.b2.y} r={dotSize / 2} fill={colours.fg} />
+            <circle cx={threeDots.a1.x} cy={threeDots.a1.y} r={dotR} fill={colours.fg} />
+            <circle cx={threeDots.shared.x} cy={threeDots.shared.y} r={dotR} fill={colours.fg} />
+            <circle cx={threeDots.b2.x} cy={threeDots.b2.y} r={dotR} fill={colours.fg} />
           </>
         )}
 
         {!twoDots && showDots && (
           <>
             {/* Reference extent endpoints */}
-            <circle cx={layout.a.x1} cy={layout.a.y1} r={dotSize / 2} fill={colours.fg} />
-            <circle cx={layout.a.x2} cy={layout.a.y2} r={dotSize / 2} fill={colours.fg} />
+            <circle cx={layout.a.x1} cy={layout.a.y1} r={dotR} fill={colours.fg} />
+            <circle cx={layout.a.x2} cy={layout.a.y2} r={dotR} fill={colours.fg} />
             {/* Target extent endpoints */}
-            <circle cx={layout.b.x1} cy={layout.b.y1} r={dotSize / 2} fill={colours.fg} />
-            <circle cx={layout.b.x2} cy={layout.b.y2} r={dotSize / 2} fill={colours.fg} />
+            <circle cx={layout.b.x1} cy={layout.b.y1} r={dotR} fill={colours.fg} />
+            <circle cx={layout.b.x2} cy={layout.b.y2} r={dotR} fill={colours.fg} />
           </>
         )}
 
