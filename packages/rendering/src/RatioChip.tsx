@@ -45,26 +45,34 @@ export function RatioChip({
   const fracA = a / total;
   const fracB = b / total;
 
-  const barStyle = (frac: number): React.CSSProperties =>
-    orientation === 'horizontal'
-      ? { flexGrow: frac, height: '100%' }
-      : { flexGrow: frac, width: '100%' };
+  // Zero basis, border inside the box: the bars split the free space exactly
+  // a : b (with an auto basis each border added outside its share).
+  const barStyle = (frac: number): React.CSSProperties => ({
+    flex: `${frac} 1 0px`,
+    minWidth: 0,
+    minHeight: 0,
+    boxSizing: 'border-box',
+    ...(orientation === 'horizontal' ? { height: '100%' } : { width: '100%' }),
+  });
 
   const handleDrag = useCallback(
     (e: React.PointerEvent) => {
       if (!draggable || !onRatioChange || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const isH = orientation === 'horizontal';
-      const raw = isH
-        ? (e.clientX - rect.left) / rect.width
-        : (e.clientY - rect.top) / rect.height;
+      // Fraction of the bars' own space (inside the 4px padding, the gap halved
+      // either side of the split), so the dragged split matches what is drawn.
+      const PAD = 4;
+      const size = (isH ? rect.width : rect.height) - PAD * 2 - gap;
+      const at = (isH ? e.clientX - rect.left : e.clientY - rect.top) - PAD - gap / 2;
+      const raw = at / Math.max(1, size);
       const clamped = Math.max(0.05, Math.min(0.95, raw));
       // Map the dragged fraction to a b value where a = 1.
       const fracB = 1 - clamped;
       const newB = Math.max(minB, Math.min(maxB, Math.round((fracB / clamped) * 10) / 10));
       onRatioChange(newB);
     },
-    [draggable, onRatioChange, orientation, minB, maxB],
+    [draggable, onRatioChange, orientation, minB, maxB, gap],
   );
 
   const containerStyle: React.CSSProperties = {

@@ -1,5 +1,6 @@
 ﻿// Types
 export * from './types.new';
+export type { CalibrationData } from './types';
 export {
   VARIABLE_REGISTRY,
   registerVariable,

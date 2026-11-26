@@ -1,4 +1,5 @@
 ﻿import { useMemo } from 'react';
+import { exactLine } from './exactLine';
 
 export type DisplayFormat = 'bar' | 'line' | 'dot-to-dot' | 'line-and-dot';
 export type Orientation = 'horizontal' | 'vertical' | 'diagonal';
@@ -86,44 +87,35 @@ export function ExtentChip({
 
   const targetLen = baseLen * linearScale;
 
-  // Canvas dimensions
-  const padding = 40;
-  const maxWidth = Math.max(baseWidth, targetWidth);
-  const maxHeight = Math.max(baseHeight, targetHeight);
+  // Direction of a line extent (a unit vector, so a line is exactly its length).
+  const dx = isHorizontal ? 1 : isDiagonal ? Math.SQRT1_2 : 0;
+  const dy = isVertical ? 1 : isDiagonal ? Math.SQRT1_2 : 0;
+  const isBar = displayFormat === 'bar';
+  // What each extent actually covers on screen, so the canvas never clips it
+  // (clipping shortens what is seen, and the ratio with it).
+  const extentBox = (w: number, h: number, len: number) =>
+    isBar ? { w, h } : { w: dx * len, h: dy * len };
+  const baseBox = extentBox(baseWidth, baseHeight, baseLen);
+  const targetBox = extentBox(targetWidth, targetHeight, targetLen);
 
-  const canvasWidth = isVertical
-    ? Math.max(maxWidth, maxHeight) + padding * 2 + 100
-    : (ratioType === 'length' ? Math.max(baseLen, targetLen) : maxWidth) + padding * 2;
-  const canvasHeight = isVertical
-    ? (ratioType === 'length' ? Math.max(baseLen, targetLen) : maxHeight) + padding * 2
-    : Math.max(baseHeight, maxHeight) + padding * 2 + 100;
+  const padding = 40;
+  const labelSpace = isBar && showReferenceLabel ? 70 : 0;
 
   // Layout positions
   const positions = useMemo(() => {
-    if (arrangement === 'side-by-side') {
-      if (isHorizontal) {
-        return {
-          base: { x: padding, y: padding },
-          target: { x: padding, y: padding + baseHeight + 40 },
-        };
-      }
-      return {
-        base: { x: padding, y: padding },
-        target: { x: padding + maxWidth + 60, y: padding },
-      };
-    }
-    if (arrangement === 'stacked') {
-      return {
-        base: { x: padding, y: padding },
-        target: { x: padding, y: padding + maxHeight + 40 },
-      };
-    }
-    // overlapping
-    return {
-      base: { x: padding, y: padding },
-      target: { x: padding + 20, y: padding + 20 },
-    };
-  }, [arrangement, isHorizontal, baseHeight, maxWidth, maxHeight]);
+    const base = { x: padding, y: padding };
+    if (arrangement === 'overlapping') return { base, target: { x: padding + 20, y: padding + 20 } };
+    // Side by side: one after the other across the extent's direction; stacked: below.
+    const below = arrangement === 'stacked' || isHorizontal;
+    return below
+      ? { base, target: { x: padding, y: padding + Math.max(baseBox.h, 1) + 40 } }
+      : { base, target: { x: padding + Math.max(baseBox.w, 1) + labelSpace + 60, y: padding } };
+  }, [arrangement, isHorizontal, baseBox.w, baseBox.h, labelSpace]);
+
+  const canvasWidth =
+    Math.max(positions.base.x + baseBox.w, positions.target.x + targetBox.w) + labelSpace + padding;
+  const canvasHeight =
+    Math.max(positions.base.y + baseBox.h, positions.target.y + targetBox.h) + padding;
 
   const renderExtent = (
     width: number,
@@ -133,13 +125,9 @@ export function ExtentChip({
     key: string,
     label: string
   ) => {
-    const isBar = displayFormat === 'bar';
     const isLine = displayFormat === 'line';
     const isDotToDot = displayFormat === 'dot-to-dot';
     const isLineAndDot = displayFormat === 'line-and-dot';
-
-    const dx = isHorizontal ? 1 : isDiagonal ? 0.707 : 0;
-    const dy = isVertical ? 1 : isDiagonal ? 0.707 : 0;
 
     const endX = origin.x + dx * lengthForLine;
     const endY = origin.y + dy * lengthForLine;
@@ -171,22 +159,12 @@ export function ExtentChip({
       );
     }
 
-    const dashArray =
-      style === 'dashed' ? `${lineThickness * 3},${lineThickness * 2}`
-      : style === 'dotted' ? `${lineThickness},${lineThickness * 2}`
-      : undefined;
-
     return (
       <g key={key}>
         <line
-          x1={origin.x}
-          y1={origin.y}
-          x2={endX}
-          y2={endY}
+          {...exactLine(origin.x, origin.y, endX, endY, style, lineThickness)}
           stroke={colours.fg}
           strokeWidth={lineThickness}
-          strokeDasharray={dashArray}
-          strokeLinecap={style === 'dotted' ? 'round' : 'butt'}
         />
         {(isDotToDot || isLineAndDot) && (
           <>
@@ -196,8 +174,8 @@ export function ExtentChip({
         )}
         {isLine && (
           <>
-            <line x1={origin.x - 4} y1={origin.y - 6} x2={origin.x - 4} y2={origin.y + 6} stroke={colours.fg} strokeWidth={lineThickness * 0.7} />
-            <line x1={endX + 4} y1={endY - 6} x2={endX + 4} y2={endY + 6} stroke={colours.fg} strokeWidth={lineThickness * 0.7} />
+            <line x1={origin.x + dy * 6} y1={origin.y - dx * 6} x2={origin.x - dy * 6} y2={origin.y + dx * 6} stroke={colours.fg} strokeWidth={lineThickness * 0.7} />
+            <line x1={endX + dy * 6} y1={endY - dx * 6} x2={endX - dy * 6} y2={endY + dx * 6} stroke={colours.fg} strokeWidth={lineThickness * 0.7} />
           </>
         )}
       </g>

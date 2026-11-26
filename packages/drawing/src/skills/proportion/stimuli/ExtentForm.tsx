@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { exactLine } from './exactLine';
 
 export type MarkType =
   'two-dots' | 'three-dots' | 'four-dots' | 'line' | 'line-with-dots' | 'line-with-three-dots';
@@ -330,42 +331,31 @@ export function ExtentForm(props: ExtentFormProps) {
   const fourDots = useMemo(() => {
     if (markType !== 'four-dots') return null;
 
+    // One rectangle with width / height = ratio exactly. Width and height are
+    // scaled together to fit (cropping each on its own changed the ratio whenever
+    // the window was short or narrow), and the dots sit exactly on the corners
+    // (jittering each dot changed the very ratio being judged).
     const usableW = dims.width - limitGap * 2;
-    const usableH = dims.height - limitGap * 2;
+    const rawW = usableW * Math.min(0.99, Math.max(0.05, baseLength / 100)) * scale;
+    const rawH = rawW / Math.max(0.01, ratio);
+    const fit = fitFactor(dims.width, dims.height, position, limitGap, rawW, rawH);
+    const w = rawW * fit;
+    const h = rawH * fit;
     const centre = targetCentre(dims.width, dims.height, position);
-
-    // Width based on baseLength % of window width
-    const width = usableW * (baseLength / 100) * scale;
-    // Height derived from ratio (width / height = ratio)
-    const height = width / Math.max(0.01, ratio);
-
-    // Clamp to fit within bounds
-    const actualW = Math.min(width, usableW);
-    const actualH = Math.min(height, usableH);
-
-    // Small jitter around corners so dots aren't perfectly aligned
-    const jitter = Math.min(actualW, actualH) * 0.12;
-    const randomOffset = () => (Math.random() - 0.5) * jitter;
-
-    const cx = centre.x;
-    const cy = centre.y;
-    const leftX = cx - actualW / 2;
-    const rightX = cx + actualW / 2;
-    const topY = cy - actualH / 2;
-    const bottomY = cy + actualH / 2;
-
-    const clampX = (x: number) => Math.min(Math.max(x, limitGap), dims.width - limitGap);
-    const clampY = (y: number) => Math.min(Math.max(y, limitGap), dims.height - limitGap);
+    const leftX = centre.x - w / 2;
+    const rightX = centre.x + w / 2;
+    const topY = centre.y - h / 2;
+    const bottomY = centre.y + h / 2;
 
     return {
       dots: [
-        { x: clampX(leftX + randomOffset()), y: clampY(topY + randomOffset()) },
-        { x: clampX(rightX + randomOffset()), y: clampY(topY + randomOffset()) },
-        { x: clampX(leftX + randomOffset()), y: clampY(bottomY + randomOffset()) },
-        { x: clampX(rightX + randomOffset()), y: clampY(bottomY + randomOffset()) },
+        { x: leftX, y: topY },
+        { x: rightX, y: topY },
+        { x: leftX, y: bottomY },
+        { x: rightX, y: bottomY },
       ],
     };
-  }, [markType, dims, limitGap, baseLength, scale, ratio]);
+  }, [markType, dims, limitGap, baseLength, scale, ratio, position]);
 
   const threeDots = useMemo(() => {
     if (markType !== 'three-dots') return null;
@@ -389,13 +379,6 @@ export function ExtentForm(props: ExtentFormProps) {
     markType === 'line-with-three-dots';
   const showLines =
     markType === 'line' || markType === 'line-with-dots' || markType === 'line-with-three-dots';
-
-  const dashArray =
-    lineStyle === 'dashed'
-      ? lineThickness * 3 + ',' + lineThickness * 2
-      : lineStyle === 'dotted'
-        ? lineThickness + ',' + lineThickness * 2
-        : undefined;
 
   const referenceUnit =
     showReferenceUnit && !twoDots
@@ -466,27 +449,17 @@ export function ExtentForm(props: ExtentFormProps) {
         {/* Extent A (reference) */}
         {showLines && (
           <line
-            x1={layout.a.x1}
-            y1={layout.a.y1}
-            x2={layout.a.x2}
-            y2={layout.a.y2}
+            {...exactLine(layout.a.x1, layout.a.y1, layout.a.x2, layout.a.y2, lineStyle, lineThickness)}
             stroke={colours.fg}
             strokeWidth={lineThickness}
-            strokeDasharray={dashArray}
-            strokeLinecap={lineStyle === 'dotted' ? 'round' : 'butt'}
           />
         )}
         {/* Extent B (target) */}
         {showLines && (
           <line
-            x1={layout.b.x1}
-            y1={layout.b.y1}
-            x2={layout.b.x2}
-            y2={layout.b.y2}
+            {...exactLine(layout.b.x1, layout.b.y1, layout.b.x2, layout.b.y2, lineStyle, lineThickness)}
             stroke={colours.fg}
             strokeWidth={lineThickness}
-            strokeDasharray={dashArray}
-            strokeLinecap={lineStyle === 'dotted' ? 'round' : 'butt'}
           />
         )}
 

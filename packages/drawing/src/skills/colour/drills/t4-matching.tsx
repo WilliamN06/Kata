@@ -56,7 +56,7 @@ export function T4Matching({ variable, variableParams, currentValue, stimulusPar
   const handle = (idx: number) => {
     if (answered) return;
     setAnswered(true);
-    const correct = options[idx].correct;
+    const correct = options[idx]!.correct;
     setTimeout(() => onAnswer({
       correct,
       responseTimeMs: Date.now() - startTime.current,

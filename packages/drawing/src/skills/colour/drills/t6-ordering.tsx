@@ -41,11 +41,11 @@ export function T6Ordering({ variable, stimulusParams, onAnswer }: DrillProps) {
     if (answered) return;
     setAnswered(true);
     const sorted = [...chips].sort((a, b) => a.value - b.value);
-    const correct = order.every((idx, i) => chips[idx].value === sorted[i].value);
+    const correct = order.every((idx, i) => chips[idx]!.value === sorted[i]!.value);
     setTimeout(() => onAnswer({
       correct,
       responseTimeMs: Date.now() - startTime.current,
-      userResponse: order.map((i) => chips[i].value),
+      userResponse: order.map((i) => chips[i]!.value),
       correctResponse: sorted.map((c) => c.value),
     }), 700);
   };
@@ -60,7 +60,7 @@ export function T6Ordering({ variable, stimulusParams, onAnswer }: DrillProps) {
           </button>
         ))}
       </div>
-      <p className="text-sm text-neutral-400 mb-4 font-mono">Order: {order.map((i) => chips[i].value).join(' → ') || '—'}</p>
+      <p className="text-sm text-neutral-400 mb-4 font-mono">Order: {order.map((i) => chips[i]!.value).join(' → ') || '—'}</p>
       <button onClick={handle} disabled={order.length !== chips.length || answered} className="px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 rounded-lg font-semibold">SUBMIT</button>
     </div>
   );
