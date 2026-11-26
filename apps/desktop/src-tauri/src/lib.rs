@@ -4,7 +4,6 @@ mod updater;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(db::DbState(std::sync::Mutex::new(None)))
         .setup(|app| {
             updater::init(app.handle());

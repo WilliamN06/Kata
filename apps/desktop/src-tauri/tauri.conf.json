@@ -28,7 +28,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "WilliamN06",
     "shortDescription": "Perceptual skill trainer",
     "icon": [
@@ -42,17 +44,6 @@
       "nsis": {
         "installMode": "currentUser",
         "installerIcon": "icons/icon.ico"
-      }
-    }
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVCODBBNjM0NzI2NUM0ODIKUldTQ3hHVnlOS2FBNjgwbzd2M1JIamRPVS9YbjBRTTYza1YwVVFpT3VsSUJBRStGbnJmd1owZGkK",
-      "endpoints": [
-        "https://github.com/WilliamN06/Kata/releases/latest/download/latest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
       }
     }
   }

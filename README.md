@@ -25,10 +25,8 @@ that only touch Markdown or `docs/` don't make a release. Update log:
 
 So the loop is: commit → `git push` to `main` → a few minutes later, open Kata and it updates itself.
 
-Updates are signed. The workflow needs the repository secret `TAURI_SIGNING_PRIVATE_KEY`, holding the
-contents of `~/.tauri/kata.key` (made with `pnpm tauri signer generate`); the matching public key is in
-`apps/desktop/src-tauri/tauri.conf.json`. Keep the private key safe: without it, installed copies
-can't receive updates.
+No secrets or signing keys are needed: Kata downloads the installer from the repository's latest
+release over HTTPS and runs it silently.
 
 The icon is drawn in `apps/desktop/src-tauri/icon.svg`; after changing it run `pnpm icons` in
 `apps/desktop` to regenerate every size.

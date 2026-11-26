@@ -1,8 +1,7 @@
 # Every push to main builds the Windows installer and publishes it as a GitHub Release.
 # Installed copies of Kata check these releases on launch and update themselves.
 #
-# Needs one repository secret: TAURI_SIGNING_PRIVATE_KEY (the contents of ~/.tauri/kata.key on the
-# PC that set this up). Installed apps only accept updates signed with that key.
+# Needs no secrets: installed apps download the installer from the latest release over HTTPS.
 name: Release
 
 on:
@@ -27,9 +26,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The pnpm version comes from "packageManager" in package.json.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 8.15.0
 
       - uses: actions/setup-node@v4
         with:
@@ -44,8 +42,7 @@ jobs:
 
       - run: pnpm install --no-frozen-lockfile
 
-      # Each run gets a higher version (1.0.<run number>) so installed apps see it as an update,
-      # and produces the signed update files (local builds skip them, so they need no key).
+      # Each run gets a higher version (1.0.<run number>) so installed apps see it as an update.
       - name: Set version
         shell: bash
         run: |
@@ -53,7 +50,6 @@ jobs:
             const f = 'apps/desktop/src-tauri/tauri.conf.json';
             const c = JSON.parse(require('fs').readFileSync(f, 'utf8'));
             c.version = '1.0.${{ github.run_number }}';
-            c.bundle.createUpdaterArtifacts = true;
             require('fs').writeFileSync(f, JSON.stringify(c, null, 2));
           "
 
@@ -61,8 +57,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
         with:
           projectPath: apps/desktop
           tagName: v1.0.${{ github.run_number }}
@@ -70,4 +64,3 @@ jobs:
           releaseBody: Built from ${{ github.sha }}. Installed copies of Kata update themselves.
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: true

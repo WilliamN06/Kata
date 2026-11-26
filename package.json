@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "kata",
   "version": "0.1.0",
   "private": true,
@@ -10,6 +10,9 @@
     "build:desktop": "pnpm --filter @kata/desktop tauri build",
     "build:web": "pnpm --filter @kata/web build",
     "preview:web": "pnpm --filter @kata/web preview",
+    "dev:lab": "pnpm --filter @kata/sound-lab dev",
+    "build:lab": "pnpm --filter @kata/sound-lab build",
+    "preview:lab": "pnpm --filter @kata/sound-lab preview",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "test": "vitest run"
