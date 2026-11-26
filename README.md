@@ -2,7 +2,36 @@
 
 Perceptual skill trainer. Trains one subskill at a time by drilling its individual variables with adaptive difficulty.
 
-**Download:** grab `Kata.exe` from the repo root and double-click it. Runs on Windows 10/11. No installation, no dependencies.
+## Install
+
+Download `Kata_x.y.z_x64-setup.exe` from the [latest release](https://github.com/WilliamN06/Kata/releases/latest)
+and run it. It installs for your user (no admin prompt) into `%LOCALAPPDATA%\Kata` and adds a Start
+menu shortcut (tick the box at the end for a desktop shortcut too). Runs on Windows 10/11.
+
+The installer isn't code-signed, so Windows SmartScreen may say "Windows protected your PC" the
+first time: click **More info → Run anyway**.
+
+To install straight from this checkout instead: `cd apps/desktop` then `pnpm install-app`. It builds
+the installer, installs it, adds Start menu and desktop shortcuts, and starts Kata.
+
+## Updates
+
+Every push to `main` runs [`.github/workflows/release.yml`](.github/workflows/release.yml): it builds
+the installer and publishes it as release `1.0.<run number>`. Installed copies check for a new release
+each time they start and download it in the background. It installs when you close Kata (or right
+away via **Restart now** in the banner that appears), so the next launch is the new version. Pushes
+that only touch Markdown or `docs/` don't make a release. Update log:
+`%LOCALAPPDATA%\com.kata.app\logs\updater.log`.
+
+So the loop is: commit → `git push` to `main` → a few minutes later, open Kata and it updates itself.
+
+Updates are signed. The workflow needs the repository secret `TAURI_SIGNING_PRIVATE_KEY`, holding the
+contents of `~/.tauri/kata.key` (made with `pnpm tauri signer generate`); the matching public key is in
+`apps/desktop/src-tauri/tauri.conf.json`. Keep the private key safe: without it, installed copies
+can't receive updates.
+
+The icon is drawn in `apps/desktop/src-tauri/icon.svg`; after changing it run `pnpm icons` in
+`apps/desktop` to regenerate every size.
 
 ---
 

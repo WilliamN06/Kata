@@ -5,6 +5,7 @@ import { App } from '@kata/app';
 import { setDbAdapter, MemoryAdapter } from '@kata/db';
 import { getAudioContext, resumeAudio } from '@kata/audio';
 import { preloadSoundfont } from '@kata/music/src/shared/SoundfontLoader';
+import { UpdateBanner } from './UpdateBanner';
 import './index.css';
 
 setDbAdapter(new MemoryAdapter());
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <App />
     </BrowserRouter>
+    <UpdateBanner />
   </StrictMode>
 );
 

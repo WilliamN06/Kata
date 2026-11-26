@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Kata app icon. Re-render every size with: pnpm icons (in apps/desktop) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c2230"/>
+      <stop offset="1" stop-color="#0a0c12"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7cc0ff"/>
+      <stop offset="1" stop-color="#3a86f0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="48" y="48" width="928" height="928" rx="208" fill="url(#bg)"/>
+  <rect x="50" y="50" width="924" height="924" rx="206" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="4"/>
+
+  <!-- Faint target rings, centred on the tile -->
+  <circle cx="512" cy="512" r="330" fill="none" stroke="#4a9eff" stroke-opacity="0.12" stroke-width="10"/>
+  <circle cx="512" cy="512" r="220" fill="none" stroke="#4a9eff" stroke-opacity="0.18" stroke-width="10"/>
+
+  <!-- K: stem plus two strokes meeting at the target point. Its outer edges (284..750 before the
+       shift) are centred on the tile. -->
+  <g transform="translate(-5 0)">
+    <g stroke="#f4f6fa" stroke-width="96" stroke-linecap="round" fill="none">
+      <line x1="332" y1="262" x2="332" y2="762"/>
+      <line x1="452" y1="512" x2="702" y2="262"/>
+      <line x1="452" y1="512" x2="702" y2="762"/>
+    </g>
+
+    <!-- Bullseye where the strokes meet -->
+    <circle cx="452" cy="512" r="92" fill="url(#accent)"/>
+    <circle cx="452" cy="512" r="34" fill="#0a0c12"/>
+  </g>
+</svg>
