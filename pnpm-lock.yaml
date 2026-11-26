@@ -6,6 +6,7 @@ settings:
 
 overrides:
   '@types/node': ^20.19.43
+  spessasynth_core: 4.3.22
 
 importers:
 
@@ -265,7 +266,7 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1
       spessasynth_core:
-        specifier: ^4.3.22
+        specifier: 4.3.22
         version: 4.3.22
       spessasynth_lib:
         specifier: ^4.3.14
@@ -2441,6 +2442,7 @@ packages:
 
   /fflate@0.8.3:
     resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
+    dev: true
 
   /fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
@@ -3211,6 +3213,7 @@ packages:
 
   /spessasynth_core@4.3.22:
     resolution: {integrity: sha512-qP6NkcZLmTLIs9fCUh2IhZRkd3Junwu8ppD4K0l/0R+Lo4P48d4Rbe8YQ8RlEYyRKFz8HcPM75sXYVQLAb7k4A==}
+    deprecated: Only the latest version of spessasynth_core is supported.
     dependencies:
       stb-vorbis: 0.0.8
     dev: false
